@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZeroBio Vault — Secure Fingerprint Authentication</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-title">ZeroBio Vault</span>
+          <span class="brand-subtitle">Fuzzy Commitment &bull; Schnorr 3-Pass ZKP &bull; Kaggle SOCOFing</span>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <div class="nav-pill">
+          <span class="pulse-dot"></span>
+          <span id="vault-status">Vault Secure &bull; 0 Biometric Leakage</span>
+        </div>
+        <a href="#benchmark-section" class="nav-link">Benchmark & Metrics</a>
+        <a href="#audit-section" class="nav-link">Privacy Audit</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-container">
+
+    <!-- One-Click Instant Demo Bar -->
+    <section class="demo-hero">
+      <div class="demo-hero-content">
+        <div class="demo-badge">QUICK DEMO</div>
+        <h1 class="hero-title">Zero-Knowledge Biometric Authentication</h1>
+        <p class="hero-desc">
+          Authenticate fingerprints with mathematical zero-knowledge. Your raw biometric never touches the database — only helper data <code class="math-code">W</code>, hash commitment <code class="math-code">H</code>, and public key <code class="math-code">Y</code> are preserved.
+        </p>
+        <div class="demo-btn-group">
+          <button id="btn-quick-genuine" class="btn btn-primary">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <span>Run Genuine Login Demo</span>
+            <span class="btn-subtext">Kaggle Subj 100 (Altered) &rarr; Access Granted</span>
+          </button>
+          <button id="btn-quick-impostor" class="btn btn-danger-soft">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            <span>Simulate Impostor Attack</span>
+            <span class="btn-subtext">Kaggle Subj 101 &rarr; Access Denied</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Verification Result Banner (Dynamic) -->
+    <section id="result-section" class="result-section hidden">
+      <div id="result-card" class="result-card">
+        <div class="result-header">
+          <div class="result-status-wrap">
+            <div id="result-icon-wrap" class="result-icon-wrap"></div>
+            <div>
+              <div id="result-title" class="result-title">ACCESS GRANTED</div>
+              <div id="result-subtitle" class="result-subtitle">Cryptographic proof verified successfully</div>
+            </div>
+          </div>
+          <button id="btn-close-result" class="btn-icon" title="Dismiss">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+
+        <div class="result-kpis">
+          <div class="kpi-card">
+            <span class="kpi-label">Hamming Error</span>
+            <span id="kpi-hd" class="kpi-value text-accent">12.5%</span>
+            <span class="kpi-hint">&lt; 24% ECC Limit</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">ECC Decoding</span>
+            <span id="kpi-ecc" class="kpi-value text-success">Recovered</span>
+            <span class="kpi-hint">Hadamard-128</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">SHA-256 Check</span>
+            <span id="kpi-hash" class="kpi-value text-success">Matched</span>
+            <span class="kpi-hint">H == SHA256(C')</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Schnorr 3-Pass ZKP</span>
+            <span id="kpi-zkp" class="kpi-value text-success">Verified</span>
+            <span class="kpi-hint">g^s &equiv; t &middot; Y^c mod p</span>
+          </div>
+        </div>
+
+        <!-- Collapsible Pipeline Details -->
+        <div class="details-accordion">
+          <button id="toggle-details" class="accordion-toggle">
+            <span>View Cryptographic Proof &amp; Biometric Details</span>
+            <svg id="accordion-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div id="details-content" class="accordion-content hidden">
+            <div class="details-grid">
+              <div class="detail-box">
+                <h4>Extracted Minutiae &amp; Core</h4>
+                <div class="img-preview-box">
+                  <img id="detail-minutiae-img" alt="Minutiae Overlay" src="" />
+                </div>
+              </div>
+              <div class="detail-box">
+                <h4>Schnorr 3-Pass Transcript</h4>
+                <div class="crypto-transcript">
+                  <div class="transcript-row">
+                    <span class="tr-label">Pass 1 &bull; Commitment (t):</span>
+                    <span id="tr-t" class="tr-val monospace"></span>
+                  </div>
+                  <div class="transcript-row">
+                    <span class="tr-label">Pass 2 &bull; Challenge (c):</span>
+                    <span id="tr-c" class="tr-val monospace"></span>
+                  </div>
+                  <div class="transcript-row">
+                    <span class="tr-label">Pass 3 &bull; Response (s):</span>
+                    <span id="tr-s" class="tr-val monospace"></span>
+                  </div>
+                  <div class="transcript-row">
+                    <span class="tr-label">Verifier Equation:</span>
+                    <span class="tr-val text-success">g^s mod p &equiv; t &middot; Y^c mod p &bull; MATCH</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Two Main Action Cards: Enroll & Verify -->
+    <section class="auth-grid">
+
+      <!-- Enroll Card (Sign Up) -->
+      <div class="card auth-card">
+        <div class="card-header">
+          <div class="card-badge badge-green">STEP 1</div>
+          <h2 class="card-title">Enroll (Sign Up)</h2>
+          <p class="card-desc">Converts fingerprint to 1024-bit canonical template, binds with 64-bit secret key <code class="math-code">C</code> via Fuzzy Commitment, and discards raw biometric data.</p>
+        </div>
+
+        <form id="enroll-form" class="auth-form">
+          <div class="form-group">
+            <label class="form-label" for="enroll-username">User Identifier</label>
+            <input type="text" id="enroll-username" class="form-input" value="alice_socofing_100" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Select Fingerprint Image</label>
+            <div class="sample-pills" id="enroll-samples">
+              <button type="button" class="sample-pill active" data-path="data/kaggle_socofing/real/100__M_Left_index_finger.BMP" data-user="alice_socofing_100">
+                Kaggle Subj 100 (Real)
+              </button>
+              <button type="button" class="sample-pill" data-path="data/kaggle_socofing/real/101__M_Left_index_finger.BMP" data-user="bob_socofing_101">
+                Kaggle Subj 101 (Real)
+              </button>
+              <button type="button" class="sample-pill" data-path="data/train/subject_101/101_1.tif" data-user="fvc_user_101">
+                FVC2002 101_1
+              </button>
+            </div>
+
+            <div class="dropzone" id="enroll-dropzone">
+              <input type="file" id="enroll-file" accept="image/*" class="file-input" />
+              <div class="dropzone-content">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span id="enroll-file-label">Drag &amp; drop or browse custom image</span>
+              </div>
+            </div>
+          </div>
+
+          <button type="submit" id="btn-submit-enroll" class="btn btn-primary btn-full">
+            <span>Enroll Fingerprint into Vault</span>
+          </button>
+        </form>
+
+        <div id="enroll-result" class="action-feedback hidden">
+          <div class="feedback-badge">&check; Enrolled Successfully</div>
+          <div class="feedback-meta">
+            <span>Commitment (H): <code id="en-commit-h" class="monospace"></code></span>
+            <span>Public Key (Y): <code id="en-pub-y" class="monospace"></code></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Authenticate Card (Login) -->
+      <div class="card auth-card">
+        <div class="card-header">
+          <div class="card-badge badge-blue">STEP 2</div>
+          <h2 class="card-title">Authenticate (Login)</h2>
+          <p class="card-desc">Fuzzy-recovers secret key <code class="math-code">C'</code> using helper data <code class="math-code">W</code>, verifies SHA-256 hash match, and runs Schnorr Zero-Knowledge Proof without exposing secret.</p>
+        </div>
+
+        <form id="auth-form" class="auth-form">
+          <div class="form-group">
+            <label class="form-label" for="auth-username">Target User ID (Claimed Identity)</label>
+            <input type="text" id="auth-username" class="form-input" value="alice_socofing_100" required />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Select Query Fingerprint (Sensor Input)</label>
+            <div class="sample-pills" id="auth-samples">
+              <button type="button" class="sample-pill active" data-path="data/kaggle_socofing/altered/100__M_Left_index_finger_CR.BMP" data-user="alice_socofing_100" data-owner="Alice (Subject 100)" data-type="genuine">
+                Subj 100 Altered (Alice Genuine)
+              </button>
+              <button type="button" class="sample-pill" data-path="data/kaggle_socofing/altered/101__M_Left_index_finger_CR.BMP" data-user="bob_socofing_101" data-owner="Bob (Subject 101)" data-type="genuine">
+                Subj 101 Altered (Bob Genuine)
+              </button>
+              <button type="button" class="sample-pill pill-danger" data-path="data/kaggle_socofing/real/101__M_Left_index_finger.BMP" data-user="alice_socofing_100" data-owner="Bob (Subject 101)" data-type="impostor">
+                ⚠️ Bob Finger vs Alice (Impostor Attack)
+              </button>
+              <button type="button" class="sample-pill pill-danger" data-path="data/kaggle_socofing/real/100__M_Left_index_finger.BMP" data-user="bob_socofing_101" data-owner="Alice (Subject 100)" data-type="impostor">
+                ⚠️ Alice Finger vs Bob (Impostor Attack)
+              </button>
+            </div>
+
+            <div class="dropzone" id="auth-dropzone">
+              <input type="file" id="auth-file" accept="image/*" class="file-input" />
+              <div class="dropzone-content">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span id="auth-file-label">Drag &amp; drop or browse query scan</span>
+              </div>
+            </div>
+
+            <!-- Scenario Helper Badge -->
+            <div id="auth-scenario-badge" class="scenario-badge badge-genuine">
+              <span id="scenario-icon">🟢</span>
+              <span id="scenario-text">Genuine Match Scenario: Alice's finger verifying Alice's account &rarr; Expected: ACCESS GRANTED</span>
+            </div>
+          </div>
+
+          <button type="submit" id="btn-submit-auth" class="btn btn-accent btn-full">
+            <span>Verify &amp; Authenticate</span>
+          </button>
+        </form>
+      </div>
+
+    </section>
+
+    <!-- Benchmark & Accuracy Section -->
+    <section id="benchmark-section" class="benchmark-section">
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">Accuracy &amp; Dataset Benchmark</h2>
+          <p class="section-desc">Performance evaluated on Kaggle SOCOFing and FVC2002 standard benchmarks across Train and Test splits.</p>
+        </div>
+        <div class="dataset-switcher">
+          <button class="switcher-btn active" data-dataset="kaggle">Kaggle SOCOFing</button>
+          <button class="switcher-btn" data-dataset="fvc">FVC2002 DB1_B</button>
+        </div>
+      </div>
+
+      <!-- KPI Bar -->
+      <div class="benchmark-kpis">
+        <div class="kpi-card highlight">
+          <span class="kpi-label">Equal Error Rate (EER)</span>
+          <span id="bench-eer" class="kpi-value text-success">0.00%</span>
+          <span class="kpi-hint">Optimal operating threshold</span>
+        </div>
+        <div class="kpi-card highlight">
+          <span class="kpi-label">Cryptographic FAR</span>
+          <span id="bench-far" class="kpi-value text-success">0.00%</span>
+          <span class="kpi-hint">Zero false accepts</span>
+        </div>
+        <div class="kpi-card highlight">
+          <span class="kpi-label">Cryptographic FRR</span>
+          <span id="bench-frr" class="kpi-value text-accent">&lt; 1%</span>
+          <span class="kpi-hint">High genuine usability</span>
+        </div>
+        <div class="kpi-card highlight">
+          <span class="kpi-label">Area Under ROC (AUC)</span>
+          <span id="bench-auc" class="kpi-value text-success">1.000</span>
+          <span class="kpi-hint">Perfect separation</span>
+        </div>
+      </div>
+
+      <!-- Interactive Benchmark Charts -->
+      <div class="benchmark-charts-card">
+        <div class="chart-header">
+          <div class="split-pills">
+            <button class="split-pill active" data-split="train">Training Split</button>
+            <button class="split-pill" data-split="test">Testing Split</button>
+          </div>
+          <span id="split-dataset-label" class="split-label">Kaggle SOCOFing &bull; Train Split</span>
+        </div>
+        <div class="chart-view">
+          <img id="benchmark-plot-img" alt="ROC &amp; EER Evaluation Curves" src="" class="benchmark-plot" />
+        </div>
+      </div>
+    </section>
+
+    <!-- Privacy & Vault Database Audit Section -->
+    <section id="audit-section" class="audit-section">
+      <div class="card audit-card">
+        <div class="card-header">
+          <div class="card-badge badge-purple">SECURITY AUDIT</div>
+          <h2 class="card-title">Zero Biometric Storage Proof</h2>
+          <p class="card-desc">Inspection of the SQLite vault confirms that zero raw images, minutiae coordinates, or private keys are written to persistent storage.</p>
+        </div>
+
+        <div class="audit-grid">
+          <div class="audit-item">
+            <span class="audit-label">Helper Data (W)</span>
+            <span class="audit-val text-success">Stored (1024-bit XOR mask)</span>
+          </div>
+          <div class="audit-item">
+            <span class="audit-label">Commitment (H)</span>
+            <span class="audit-val text-success">Stored (SHA-256 hash)</span>
+          </div>
+          <div class="audit-item">
+            <span class="audit-label">Public Key (Y)</span>
+            <span class="audit-val text-success">Stored (g^C mod p)</span>
+          </div>
+          <div class="audit-item">
+            <span class="audit-label">Raw Fingerprint Images</span>
+            <span class="audit-val text-danger">Never Stored (&empty;)</span>
+          </div>
+          <div class="audit-item">
+            <span class="audit-label">Minutiae Points</span>
+            <span class="audit-val text-danger">Never Stored (&empty;)</span>
+          </div>
+          <div class="audit-item">
+            <span class="audit-label">Private Secret Key (C)</span>
+            <span class="audit-val text-danger">Volatile RAM Only (&empty;)</span>
+          </div>
+        </div>
+
+        <div class="enrolled-users-section">
+          <h3>Enrolled Vault Users (<span id="user-count">0</span>)</h3>
+          <div class="table-wrap">
+            <table class="user-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Commitment H</th>
+                  <th>Public Key Y</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="user-table-body">
+                <tr><td colspan="4" class="text-center">Loading users...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="footer">
+    <div class="footer-container">
+      <span>ZeroBio Vault &bull; Secure Fingerprint Cryptosystem with Schnorr 3-Pass ZKP &amp; Fuzzy Commitment</span>
+      <span class="footer-right">Datasets: Kaggle SOCOFing &amp; FVC2002 DB1_B</span>
+    </div>
+  </footer>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>

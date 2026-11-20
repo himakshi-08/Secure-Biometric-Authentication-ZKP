@@ -57,22 +57,6 @@ The implementation directly realizes every block of the system flow diagram:
 
 ---
 
-## 📊 Benchmark Evaluation & Metrics
-
-The system was evaluated using genuine pairs (real vs altered versions of the same finger) and impostor pairs (different subjects attempting unauthorized access).
-
-### Kaggle SOCOFing Benchmark Results:
-| Dataset Split | Genuine Trials | Cryptographic FAR | Cryptographic FRR | EER | AUC | ZKP Verification |
-|---|---|---|---|---|---|---|
-| **Kaggle Train Split** (Subj 100–105) | 18 | **0.0000%** | Very Low | **0.00%** | **1.000** | **100% Passed** |
-| **Kaggle Test Split** (Subj 106–109) | 12 | **0.0000%** | Very Low | **0.00%** | **1.000** | **100% Passed** |
-
-### Key Metric Findings:
-- **Equal Error Rate (EER): 0.00%** with a clear decision separation margin between genuine ($HD \approx 0.14$) and impostor ($HD \approx 0.43$) distributions.
-- **Cryptographic False Acceptance Rate (FAR): 0.00%** — not a single impostor breach across all trials.
-- **Hadamard-128 ECC Tolerance:** Corrects up to 31 bit flips per 128-bit block (~24.2% error rate), easily absorbing rotational and obliteration noise while rejecting impostor attempts.
-
----
 
 ## 🚀 Getting Started & Running the Project
 

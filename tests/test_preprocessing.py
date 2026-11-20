@@ -10,7 +10,7 @@ from core.preprocessing import (
     thin_skeleton, preprocess_pipeline
 )
 
-SAMPLE_PATH = 'data/fvc2002_db1_b/101_1.tif'
+SAMPLE_PATH = 'data/kaggle_socofing/real/100__M_Left_index_finger.BMP'
 
 
 def test_normalization():

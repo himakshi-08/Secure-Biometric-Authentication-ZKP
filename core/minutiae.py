@@ -61,8 +61,8 @@ def extract_crossing_numbers(skeleton: np.ndarray) -> np.ndarray:
 def prune_and_filter_minutiae(
     minutiae_list: List[Minutia],
     mask: np.ndarray,
-    min_dist: float = 8.0,
-    border_margin: int = 16
+    min_dist: float = None,
+    border_margin: int = None
 ) -> List[Minutia]:
     """
     Removes false minutiae:
@@ -70,6 +70,10 @@ def prune_and_filter_minutiae(
     2. Minutiae pairs that are closer than min_dist to each other.
     """
     h, w = mask.shape
+    if border_margin is None:
+        border_margin = max(4, int(min(h, w) * 0.06))
+    if min_dist is None:
+        min_dist = max(3.0, min(h, w) * 0.05)
     eroded_mask = cv2.erode(mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (border_margin * 2, border_margin * 2)))
 
     # Step 1: Filter border and outside mask
@@ -104,7 +108,8 @@ def extract_minutiae(
     skeleton: np.ndarray,
     mask: np.ndarray,
     orientation: np.ndarray = None,
-    min_dist: float = 8.0
+    min_dist: float = None,
+    border_margin: int = None
 ) -> List[Minutia]:
     """
     Complete minutiae extraction pipeline:
@@ -129,7 +134,7 @@ def extract_minutiae(
         angle = orientation[y, x] if orientation is not None else 0.0
         raw_minutiae.append(Minutia(x, y, 'bifurcation', angle))
 
-    filtered = prune_and_filter_minutiae(raw_minutiae, mask, min_dist=min_dist)
+    filtered = prune_and_filter_minutiae(raw_minutiae, mask, min_dist=min_dist, border_margin=border_margin)
     return filtered
 
 

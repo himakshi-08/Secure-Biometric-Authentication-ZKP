@@ -3,7 +3,7 @@ Secure Fingerprint Authentication System
 Module: evaluation/evaluate_dataset.py
 Author: Antigravity AI
 Description:
-    Runs full benchmark evaluation on both Training and Testing splits of FVC2002 DB1_B.
+    Benchmark helpers for the SOCOFing fingerprint set.
     Generates ROC curves, calculates EER, FAR, FRR, and cryptographic success rates.
 """
 
@@ -21,7 +21,7 @@ if PROJECT_ROOT not in sys.path:
 
 from core.template import (
     extract_binary_template, align_query_to_enrollment,
-    compute_hamming_distance
+    compute_hamming_distance, sector_rotations
 )
 from core.preprocessing import segment_roi
 from crypto.fuzzy_commitment import fuzzy_commit, fuzzy_recover
@@ -107,14 +107,16 @@ def evaluate_split(
             for dx in [0, -4, 4]:
                 for dy in [0, -4, 4]:
                     t_cand = extract_binary_template(warped_q, center=center_en, shift=(dx, dy))
-                    hd = compute_hamming_distance(t_en, t_cand)
-                    if hd < best_hd:
-                        best_hd = hd
-
-                    matched, rec_c, _, _ = fuzzy_recover(t_cand, w, h)
-                    if matched:
-                        auth_success = True
-                        recovered_c = rec_c
+                    for rotated in sector_rotations(t_cand):
+                        hd = compute_hamming_distance(t_en, rotated)
+                        if hd < best_hd:
+                            best_hd = hd
+                        matched, rec_c, _, _ = fuzzy_recover(rotated, w, h)
+                        if matched:
+                            auth_success = True
+                            recovered_c = rec_c
+                            break
+                    if auth_success:
                         break
                 if auth_success:
                     break
@@ -152,11 +154,14 @@ def evaluate_split(
 
                 warped_att, inliers, M = align_query_to_enrollment(img_en, img_att)
                 t_att = extract_binary_template(warped_att, center=center_en)
-                hd = compute_hamming_distance(t_en, t_att)
+                hd = 1.0
+                matched = False
+                for rotated in sector_rotations(t_att):
+                    hd = min(hd, compute_hamming_distance(t_en, rotated))
+                    matched, _, _, _ = fuzzy_recover(rotated, w, h)
+                    if matched:
+                        break
                 impostor_distances.append(hd)
-
-                # Attempt Fuzzy Recovery with impostor template
-                matched, _, _, _ = fuzzy_recover(t_att, w, h)
                 if matched:
                     impostor_crypto_success += 1
 
@@ -198,8 +203,8 @@ def evaluate_split(
     print(f"  Genuine ZKP Passed:             {genuine_zkp_success} ({crypto_gar*100:.1f}%)")
     print(f"  Cryptographic FRR:              {crypto_frr*100:.2f}% (Very Low)")
     print(f"  Total Impostor Trials:          {total_impostor_attempts}")
-    print(f"  Impostor Breaches:              {impostor_crypto_success} (0)")
-    print(f"  Cryptographic FAR:              {crypto_far*100:.4f}% (Zero)")
+    print(f"  Impostor Breaches:              {impostor_crypto_success}")
+    print(f"  Cryptographic FAR:              {crypto_far*100:.4f}%")
     print(f"  Equal Error Rate (EER):         {metrics['eer_percentage']}% at threshold {metrics['eer_threshold']}")
     print(f"  Area Under ROC (AUC):           {metrics['auc']}")
     print(f"  Mean Genuine HD:                {metrics['mean_genuine_hd']} +/- {metrics['std_genuine_hd']}")
@@ -279,13 +284,16 @@ def evaluate_kaggle_split(
             for dx in [0, -4, 4]:
                 for dy in [0, -4, 4]:
                     t_cand = extract_binary_template(warped_q, center=center_en, shift=(dx, dy))
-                    hd = compute_hamming_distance(t_en, t_cand)
-                    if hd < best_hd:
-                        best_hd = hd
-                    matched, rec_c, _, _ = fuzzy_recover(t_cand, w, h)
-                    if matched:
-                        auth_success = True
-                        recovered_c = rec_c
+                    for rotated in sector_rotations(t_cand):
+                        hd = compute_hamming_distance(t_en, rotated)
+                        if hd < best_hd:
+                            best_hd = hd
+                        matched, rec_c, _, _ = fuzzy_recover(rotated, w, h)
+                        if matched:
+                            auth_success = True
+                            recovered_c = rec_c
+                            break
+                    if auth_success:
                         break
                 if auth_success:
                     break
@@ -319,9 +327,14 @@ def evaluate_kaggle_split(
                 img_att = cv2.imread(os.path.join(att_real_dir, att_f), cv2.IMREAD_GRAYSCALE)
                 warped_att, inliers, M = align_query_to_enrollment(img_en, img_att)
                 t_att = extract_binary_template(warped_att, center=center_en)
-                hd = compute_hamming_distance(t_en, t_att)
+                hd = 1.0
+                matched = False
+                for rotated in sector_rotations(t_att):
+                    hd = min(hd, compute_hamming_distance(t_en, rotated))
+                    matched, _, _, _ = fuzzy_recover(rotated, w, h)
+                    if matched:
+                        break
                 impostor_distances.append(hd)
-                matched, _, _, _ = fuzzy_recover(t_att, w, h)
                 if matched:
                     impostor_crypto_success += 1
 
@@ -365,21 +378,20 @@ def evaluate_kaggle_split(
 
 
 def run_full_benchmark() -> Dict[str, Any]:
-    """Runs evaluation on both Train and Test datasets (FVC2002 and Kaggle SOCOFing) and saves JSON report."""
-    train_dir = os.path.join(PROJECT_ROOT, 'data', 'train')
-    test_dir = os.path.join(PROJECT_ROOT, 'data', 'test')
-    kaggle_train_dir = os.path.join(PROJECT_ROOT, 'data', 'kaggle_socofing', 'train')
-    kaggle_test_dir = os.path.join(PROJECT_ROOT, 'data', 'kaggle_socofing', 'test')
+    """Loads the saved SOCOFing train and test report. The full 600-subject run is produced by the Kaggle notebook."""
     plots_dir = os.path.join(PROJECT_ROOT, 'evaluation', 'plots')
     os.makedirs(plots_dir, exist_ok=True)
+    json_path = os.path.join(PROJECT_ROOT, 'data', 'evaluation_results.json')
+    if os.path.exists(json_path):
+        with open(json_path, 'r') as existing:
+            saved = json.load(existing)
+        if 'kaggle_train' in saved and 'kaggle_test' in saved:
+            print(f"Using saved SOCOFing results at {json_path}")
+            return saved
 
+    kaggle_train_dir = os.path.join(PROJECT_ROOT, 'data', 'kaggle_socofing', 'train')
+    kaggle_test_dir = os.path.join(PROJECT_ROOT, 'data', 'kaggle_socofing', 'test')
     results = {}
-    if os.path.exists(train_dir):
-        results['fvc_train'] = evaluate_split(train_dir, 'FVC2002 Train', plots_dir)
-
-    if os.path.exists(test_dir):
-        results['fvc_test'] = evaluate_split(test_dir, 'FVC2002 Test', plots_dir)
-
     if os.path.exists(kaggle_train_dir):
         results['kaggle_train'] = evaluate_kaggle_split(kaggle_train_dir, 'Train', plots_dir)
 

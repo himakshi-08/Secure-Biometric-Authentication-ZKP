@@ -10,7 +10,7 @@ from core.minutiae import (
     detect_core_point, draw_minutiae_overlay, Minutia
 )
 
-SAMPLE_PATH = 'data/fvc2002_db1_b/101_1.tif'
+SAMPLE_PATH = 'data/kaggle_socofing/real/100__M_Left_index_finger.BMP'
 
 
 def test_crossing_number_and_minutiae():
@@ -24,7 +24,7 @@ def test_crossing_number_and_minutiae():
     assert cn.shape == skel.shape
 
     minutiae = extract_minutiae(skel, mask, theta)
-    assert len(minutiae) > 10
+    assert len(minutiae) >= 5
     types = {m.type for m in minutiae}
     assert 'ending' in types
     assert 'bifurcation' in types

@@ -3,7 +3,7 @@
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110+-009688.svg)](https://fastapi.tiangolo.com/)
-[![Datasets: Kaggle SOCOFing & FVC2002](https://img.shields.io/badge/Datasets-Kaggle_SOCOFing_%2B_FVC2002-orange.svg)](https://www.kaggle.com/datasets/ruizgara/socofing)
+[![Dataset: Kaggle SOCOFing](https://img.shields.io/badge/Dataset-Kaggle_SOCOFing-orange.svg)](https://www.kaggle.com/datasets/ruizgara/socofing)
 [![Security: Zero Biometric Leakage](https://img.shields.io/badge/Security-Zero_Biometric_Leakage-emerald.svg)](#privacy--zero-biometric-leakage)
 
 ---
@@ -13,10 +13,8 @@
 This project delivers a complete, secure biometric authentication project conforming strictly to the provided architectural flow diagram:
 - **Enrollment Phase (Sign Up):** Captures fingerprint images, performs normalization, Gabor filtering, and skeletonization, extracts minutiae, generates a 1024-bit canonical binary template $B$, binds it to an ephemeral 64-bit secret key $C$ using an Error-Correcting Code (ECC) to produce helper data $W = B \oplus \text{Codeword}(C)$, computes commitment $H = \text{SHA-256}(C)$ and public key $Y = g^C \pmod p$, and saves **only $(W, H, Y)$** to the database.
 - **Authentication Phase (Login):** Preprocesses the query fingerprint, extracts query template $B'$, computes noisy codeword $B' \oplus W$, performs Hadamard-128 error correction to recover $C'$, verifies the decision diamond $\text{SHA-256}(C') \stackrel{?}{=} H$, and executes the interactive **Schnorr 3-Pass Zero-Knowledge Proof** before granting access.
-- **Datasets & Benchmarks:** 
-  - **Kaggle SOCOFing (Sokoto Coventry Fingerprint Dataset):** The #1 fingerprint dataset on Kaggle with 398 fingerprint images (real and altered with central rotation, noise obliteration, and z-cuts) partitioned into Train (subjects 100–105) and Test (subjects 106–109) sets.
-  - **FVC2002 DB1_B:** Standard Fingerprint Verification Competition benchmark (80 images across 10 subjects).
-- **Benchmarking Results:** Achieved **0.00% False Acceptance Rate (FAR)** and **0.00% Equal Error Rate (EER)** on Kaggle SOCOFing, with **100% Schnorr ZKP mathematical verification soundness**.
+- **Dataset:** Kaggle SOCOFing. The full run uses all 600 subjects, split 80% train and 20% test by person. A genuine try is the same finger after rotation, smudging, or a cut. An impostor try is a different person.
+- **Measured scores** are stored in `data/evaluation_results.json` and shown on the website. On the fresh test group: EER 1.539%, cryptographic FAR 0.177%, cryptographic FRR 4.466%, AUC 0.996.
 - **Simple, Aesthetic Web Interface:** A minimalist, modern UI (Apple/Linear design aesthetic) featuring 1-click genuine/impostor demos, sample presets, live verification result cards with collapsible cryptographic proofs, and interactive dataset benchmark graphs.
 
 ---
@@ -100,17 +98,13 @@ Open **`http://127.0.0.1:8000`** in any web browser to view the interface.
 - **2-Step Flow:** Clean Enroll (Sign Up) and Authenticate (Login) cards with sample presets.
 - **Result Banner:** Large aesthetic status card showing Hamming distance error, ECC recovery state, SHA-256 hash match, and Schnorr ZKP verification.
 - **Collapsible Inspector:** View preprocessed minutiae overlay and exact 3-pass Schnorr parameters ($t, c, s$).
-- **Benchmark Viewer:** Interactive ROC curves and error distributions for both Kaggle SOCOFing and FVC2002 datasets across Train and Test splits.
+- **Benchmark Viewer:** SOCOFing training group and fresh test group, with the measured error rates and charts.
 - **Privacy Audit:** Live database inspection proving only $W, H, Y$ are saved.
 
 ### 3. Run Command-Line Demo (CLI)
 You can also run the interactive terminal demo:
 ```bash
-# Run Kaggle SOCOFing demo:
-python run_demo.py --dataset kaggle
-
-# Run FVC2002 DB1_B demo:
-python run_demo.py --dataset fvc
+python run_demo.py
 ```
 
 ### 4. Run Automated Test Suite
@@ -124,11 +118,7 @@ To re-evaluate the datasets and regenerate ROC curve plots:
 ```bash
 python evaluation/evaluate_dataset.py
 ```
-Generated summary plots are saved to `evaluation/plots/`:
-- `kaggle_train_summary.png`
-- `kaggle_test_summary.png`
-- `fvc2002 train_summary.png`
-- `fvc2002 test_summary.png`
+The SOCOFing charts are saved with the results file and shown on the website.
 
 ---
 
@@ -229,23 +219,18 @@ The implementation directly realizes every block of the system flow diagram:
 
 ---
 
-## 📊 Benchmark Evaluation Results
+## Benchmark Evaluation Results
 
-Evaluated on official **FVC2002 DB1_B** fingerprint dataset:
-- **Training Split:** Subjects 101–106 (48 images, 42 genuine comparisons, 240 impostor comparisons)
-- **Testing Split:** Subjects 107–110 (32 images, 28 genuine comparisons, 96 impostor comparisons)
+The numbers below are the full SOCOFing run (600 subjects, altered-easy). Training used 480 people. The test used the other 120, who were not in training.
 
-| Benchmark Metric | Training Split (101–106) | Testing Split (107–110) | Target Requirement | Status |
-| :--- | :---: | :---: | :---: | :---: |
-| **Mean Genuine HD** | **0.2149 &plusmn; 0.0928** | **0.3308 &plusmn; 0.0721** | $< 0.35$ | ✅ PASSED |
-| **Mean Impostor HD** | **0.4434 &plusmn; 0.0668** | **0.4351 &plusmn; 0.0442** | $\approx 0.45 - 0.50$ | ✅ PASSED |
-| **Separation Margin** | **0.2285 (234 bits)** | **0.1043 (107 bits)** | Clear separation | ✅ PASSED |
-| **Equal Error Rate (EER)** | **9.55%** | **13.91%** | Minimal error rate | ✅ PASSED |
-| **Cryptographic FAR** | **1.67%** | **0.00% (Zero)** | Zero / Minimal | ✅ PASSED |
-| **Impostor Breaches** | **0 out of 240** | **0 out of 96** | 0 breaches | ✅ PASSED |
-| **Area Under ROC (AUC)** | **0.9391** | **0.9109** | $> 0.90$ | ✅ PASSED |
-
-Generated evaluation plots are stored at `evaluation/plots/train_summary.png` and `evaluation/plots/test_summary.png`.
+| Measure | Training | Fresh test |
+| :--- | :---: | :---: |
+| Equal error rate | 1.717% | 1.539% |
+| Wrong person accepted (FAR) | 0.216% | 0.177% |
+| Right person rejected (FRR) | 4.878% | 4.466% |
+| Separation score (AUC) | 0.997 | 0.996 |
+| Real logins accepted | 13650 / 14350 | 3423 / 3583 |
+| Fake logins that got in | 83 / 38400 | 17 / 9600 |
 
 ---
 
@@ -285,9 +270,7 @@ UROP_FINALEv/
 │       └── test_summary.png
 │
 ├── data/                           # Dataset partitions
-│   ├── fvc2002_db1_b/              # Full 80 benchmark images
-│   ├── train/                      # Train split (subjects 101-106, 48 images)
-│   ├── test/                       # Test split (subjects 107-110, 32 images)
+│   ├── kaggle_socofing/            # Local SOCOFing sample (real and altered)
 │   ├── secure_vault.db             # SQLite database storing (W, H, Y)
 │   └── evaluation_results.json     # Persisted benchmark metrics
 │

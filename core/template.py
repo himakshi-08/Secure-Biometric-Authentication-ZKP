@@ -169,6 +169,28 @@ def extract_binary_template(
     return binary_template
 
 
+def sector_rotations(
+    template: np.ndarray,
+    num_bands: int = 8,
+    num_sectors: int = 16,
+    num_filters: int = 8
+) -> np.ndarray:
+    """
+    Returns every circular shift of the polar template, one row per sector step.
+    A central rotation of the finger moves bits along the sector axis.
+    Shape: (num_sectors, 1024). Row 0 is the unshifted template.
+    """
+    flat = np.asarray(template, dtype=np.uint8).reshape(-1)
+    expected = num_bands * num_sectors * num_filters
+    if flat.size != expected:
+        raise ValueError(f"Template length {flat.size} does not match {expected}.")
+    cube = flat.reshape(num_bands, num_sectors, num_filters)
+    shifted = np.empty((num_sectors, expected), dtype=np.uint8)
+    for step in range(num_sectors):
+        shifted[step] = np.roll(cube, step, axis=1).ravel()
+    return shifted
+
+
 def compute_hamming_distance(template_A: np.ndarray, template_B: np.ndarray) -> float:
     """Computes normalized Hamming distance in [0, 1]."""
     return float(np.mean(template_A != template_B))

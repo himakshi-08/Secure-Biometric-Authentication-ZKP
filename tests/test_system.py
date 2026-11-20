@@ -5,62 +5,10 @@ import numpy as np
 import pytest
 
 from core.preprocessing import segment_roi
-from core.template import extract_binary_template, align_query_to_enrollment
+from core.template import extract_binary_template
 from crypto.fuzzy_commitment import fuzzy_commit, fuzzy_recover
 from crypto.schnorr_zkp import execute_schnorr_protocol
 from crypto.database import store_enrolled_user, get_enrolled_user, delete_enrolled_user
-
-
-def test_end_to_end_enrollment_and_authentication():
-    # Load enrollment image (101_1)
-    img_en = cv2.imread('data/train/subject_101/101_1.tif', cv2.IMREAD_GRAYSCALE)
-    assert img_en is not None
-
-    _, center_en = segment_roi(img_en)
-    t_en = extract_binary_template(img_en, center=center_en)
-    
-    # 1. Fuzzy Commit
-    helper_w, commit_h, pub_y, sec_c = fuzzy_commit(t_en)
-    username = "integration_test_subject_101"
-    store_enrolled_user(username, helper_w, commit_h, pub_y, center_en)
-
-    # 2. Authenticate Genuine Query (101_2)
-    user_cred = get_enrolled_user(username)
-    assert user_cred is not None
-    img_q = cv2.imread('data/train/subject_101/101_2.tif', cv2.IMREAD_GRAYSCALE)
-    warped_q, inliers, _ = align_query_to_enrollment(img_en, img_q)
-
-    # Search small shift
-    auth_success = False
-    recovered_key = None
-    for dx in [0, -4, 4]:
-        for dy in [0, -4, 4]:
-            t_cand = extract_binary_template(warped_q, center=user_cred['center'], shift=(dx, dy))
-            matched, rec_c, _, _ = fuzzy_recover(t_cand, user_cred['helper_data_w'], user_cred['commitment_h'])
-            if matched:
-                auth_success = True
-                recovered_key = rec_c
-                break
-        if auth_success:
-            break
-
-    assert auth_success is True, "Genuine fingerprint failed to authenticate"
-    assert recovered_key == sec_c
-
-    # 3. Execute Schnorr ZKP
-    zkp_ok, transcript = execute_schnorr_protocol(recovered_key, user_cred['public_key_y'])
-    assert zkp_ok is True
-    assert transcript['match'] is True
-
-    # 4. Authenticate Impostor Query (102_1)
-    img_imp = cv2.imread('data/train/subject_102/102_1.tif', cv2.IMREAD_GRAYSCALE)
-    warped_imp, inliers_imp, _ = align_query_to_enrollment(img_en, img_imp)
-    t_imp = extract_binary_template(warped_imp, center=user_cred['center'])
-    imp_matched, _, _, _ = fuzzy_recover(t_imp, user_cred['helper_data_w'], user_cred['commitment_h'])
-    assert imp_matched is False, "Impostor was falsely accepted!"
-
-    # Clean up
-    delete_enrolled_user(username)
 
 
 def test_kaggle_socofing_end_to_end():

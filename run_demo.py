@@ -3,7 +3,7 @@ Secure Fingerprint Authentication System - Command Line Interactive Demo
 Author: Antigravity AI
 Description:
     Demonstrates the complete end-to-end biometric cryptosystem:
-    1. Enrollment of a fingerprint image from FVC2002 DB1_B
+    1. Enrollment of a SOCOFing fingerprint
     2. Verification of a Genuine Attempt (same finger, different impression)
     3. Verification of an Impostor Attempt (different finger)
     4. Execution of Schnorr 3-Pass Zero-Knowledge Proof
@@ -41,27 +41,19 @@ def print_banner(text: str, color: str = '\033[94m'):
     print(f"{'='*65}{reset}")
 
 
-def run_demo(dataset: str = 'kaggle'):
+def run_demo():
     print_banner("SECURE FINGERPRINT AUTHENTICATION SYSTEM (DEMO)", '\033[96m')
     print("Architecture: Juels-Wattenberg Fuzzy Commitment + Schnorr 3-Pass ZKP")
-    print(f"Benchmark:    {'Kaggle SOCOFing (Sokoto Coventry)' if dataset == 'kaggle' else 'FVC2002 DB1_B Optical Sensor'}\n")
+    print("Dataset:      Kaggle SOCOFing\n")
 
     init_database()
 
-    if dataset == 'kaggle':
-        enroll_img_path = os.path.join(PROJECT_ROOT, 'data', 'kaggle_socofing', 'real', '100__M_Left_index_finger.BMP')
-        query_gen_path = os.path.join(PROJECT_ROOT, 'data', 'kaggle_socofing', 'altered', '100__M_Left_index_finger_CR.BMP')
-        query_imp_path = os.path.join(PROJECT_ROOT, 'data', 'kaggle_socofing', 'real', '101__M_Left_index_finger.BMP')
-        enroll_label = "Kaggle SOCOFing Subject 100 (Real)"
-        gen_label = "Kaggle SOCOFing Subject 100 (Altered - Rotation)"
-        imp_label = "Kaggle SOCOFing Subject 101 attacking Subject 100"
-    else:
-        enroll_img_path = os.path.join(PROJECT_ROOT, 'data', 'train', 'subject_101', '101_1.tif')
-        query_gen_path = os.path.join(PROJECT_ROOT, 'data', 'train', 'subject_101', '101_2.tif')
-        query_imp_path = os.path.join(PROJECT_ROOT, 'data', 'train', 'subject_102', '102_1.tif')
-        enroll_label = "FVC2002 Subject 101 (Impression 1)"
-        gen_label = "FVC2002 Subject 101 (Impression 2)"
-        imp_label = "FVC2002 Subject 102 attacking Subject 101"
+    enroll_img_path = os.path.join(PROJECT_ROOT, 'data', 'kaggle_socofing', 'real', '100__M_Left_index_finger.BMP')
+    query_gen_path = os.path.join(PROJECT_ROOT, 'data', 'kaggle_socofing', 'altered', '100__M_Left_index_finger_CR.BMP')
+    query_imp_path = os.path.join(PROJECT_ROOT, 'data', 'kaggle_socofing', 'real', '101__M_Left_index_finger.BMP')
+    enroll_label = "SOCOFing Subject 100 (Real)"
+    gen_label = "SOCOFing Subject 100 (Rotated)"
+    imp_label = "SOCOFing Subject 101 attacking Subject 100"
 
     # ---------------------------------------------------------
     # PHASE 1: ENROLLMENT (Sign Up)
@@ -185,9 +177,5 @@ def run_demo(dataset: str = 'kaggle'):
 
 
 if __name__ == '__main__':
-    import argparse
-    parser = argparse.ArgumentParser(description="Secure Fingerprint Authentication Demo")
-    parser.add_argument('--dataset', choices=['kaggle', 'fvc'], default='kaggle', help='Dataset to demonstrate')
-    args = parser.parse_args()
-    run_demo(dataset=args.dataset)
+    run_demo()
 

@@ -37,9 +37,11 @@ from core.minutiae import (
 from core.template import (
     extract_binary_template, align_query_to_enrollment,
     compute_hamming_distance, compute_bit_flips,
-    render_binary_template_matrix
+    render_binary_template_matrix, sector_rotations
 )
-from crypto.fuzzy_commitment import fuzzy_commit, fuzzy_recover
+from crypto.fuzzy_commitment import (
+    fuzzy_commit, fuzzy_recover, reconstruct_template
+)
 from crypto.schnorr_zkp import execute_schnorr_protocol
 from crypto.database import (
     init_database, store_enrolled_user, get_enrolled_user,
@@ -71,6 +73,124 @@ def image_to_base64(image_np: np.ndarray, format_ext: str = '.png') -> str:
     b64_str = base64.b64encode(buffer).decode('utf-8')
     mime = "image/png" if format_ext == '.png' else "image/jpeg"
     return f"data:{mime};base64,{b64_str}"
+
+
+def synthetic_fingerprint(seed: int, angle: float = 0.0, size: int = 160) -> np.ndarray:
+    """
+    Builds a ridge image from a subject seed.
+    The same seed with a small rotation is a genuine re-capture.
+    A different seed is a different identity.
+    """
+    rng = np.random.RandomState(seed)
+    noise = rng.randn(size, size).astype(np.float32)
+    noise = cv2.GaussianBlur(noise, (0, 0), 7)
+    field = np.sin(noise * 9.0)
+    image = np.clip(128 + 120 * field, 0, 255).astype(np.uint8)
+    cx = cy = size / 2
+    if angle:
+        matrix = cv2.getRotationMatrix2D((cx, cy), angle, 1.0)
+        image = cv2.warpAffine(image, matrix, (size, size), borderMode=cv2.BORDER_REFLECT)
+    return image
+
+
+DEMO_FINGERS = {
+    'alice_real': {'seed': 100, 'angle': 0.0, 'username': 'alice_socofing_100'},
+    'bob_real': {'seed': 220, 'angle': 0.0, 'username': 'bob_socofing_101'},
+    'alice_rotated': {'seed': 100, 'angle': 8.0, 'username': 'alice_socofing_100'},
+    'bob_vs_alice': {'seed': 220, 'angle': 0.0, 'username': 'alice_socofing_100'},
+}
+
+
+def resolve_input_image(
+    file_bytes: Optional[bytes],
+    dataset_path: Optional[str],
+    demo_id: Optional[str]
+) -> np.ndarray:
+    """Loads an uploaded image, a dataset file, or a built-in demo finger."""
+    if file_bytes:
+        return load_image_from_bytes(file_bytes)
+    if demo_id:
+        spec = DEMO_FINGERS.get(demo_id)
+        if spec is None:
+            raise ValueError(f"Unknown demo fingerprint '{demo_id}'.")
+        return synthetic_fingerprint(spec['seed'], spec['angle'])
+    if dataset_path:
+        full_path = os.path.join(PROJECT_ROOT, dataset_path.lstrip('/\\'))
+        if not os.path.isfile(full_path):
+            raise ValueError(
+                "That sample image is not in this project. "
+                "Use a demo finger or upload an image."
+            )
+        img = cv2.imread(full_path, cv2.IMREAD_GRAYSCALE)
+        if img is None:
+            raise ValueError(f"Cannot load dataset image: {dataset_path}")
+        return img
+    raise ValueError("No image provided.")
+
+
+def authenticate_against_vault(
+    img_q: np.ndarray,
+    center_en: tuple,
+    helper_w: np.ndarray,
+    commit_h: str,
+    public_key_y: int
+) -> Dict[str, Any]:
+    """
+    Tries small translations and every polar-sector rotation.
+    Access requires Hadamard recovery of C and a valid Schnorr proof.
+    Hamming distance is measured against the template rebuilt from W and C.
+    """
+    auth_success = False
+    recovered_c = None
+    candidate_hash = ""
+    best_hd = 1.0
+    best_flips = 1024
+    best_template = None
+    closest_flips = 1024
+
+    shifts = [(0, 0), (-4, 0), (4, 0), (0, -4), (0, 4)]
+    for dx, dy in shifts:
+        base = extract_binary_template(img_q, center=center_en, shift=(dx, dy))
+        for candidate in sector_rotations(base):
+            matched, rec_c, cand_h, diag = fuzzy_recover(candidate, helper_w, commit_h)
+            flips = int(diag.get('estimated_bit_flips', 1024))
+            if flips < closest_flips:
+                closest_flips = flips
+                candidate_hash = cand_h
+                best_template = candidate
+            if matched and rec_c is not None:
+                enrolled_b = reconstruct_template(helper_w, rec_c)
+                hd = float(np.mean(candidate != enrolled_b))
+                auth_success = True
+                recovered_c = rec_c
+                candidate_hash = cand_h
+                best_hd = hd
+                best_flips = int(round(hd * 1024))
+                best_template = candidate
+                break
+        if auth_success:
+            break
+
+    zkp_verified = False
+    zkp_transcript = None
+    if auth_success and recovered_c is not None:
+        zkp_verified, zkp_transcript = execute_schnorr_protocol(recovered_c, public_key_y)
+        final_status = "ACCESS GRANTED" if zkp_verified else "ACCESS DENIED (ZKP Failed)"
+    else:
+        best_hd = closest_flips / 1024.0
+        best_flips = closest_flips
+        final_status = "ACCESS DENIED (SHA-256 Mismatch)"
+
+    return {
+        'access_granted': bool(auth_success and zkp_verified),
+        'final_status': final_status,
+        'recovered': auth_success,
+        'candidate_hash': candidate_hash,
+        'hamming_distance': round(best_hd, 4),
+        'bit_flips': int(best_flips),
+        'template': best_template,
+        'schnorr_zkp': zkp_transcript
+    }
 
 
 def load_image_from_bytes(file_bytes: bytes) -> np.ndarray:
@@ -347,7 +467,7 @@ async def authenticate_user(
 
 @app.get("/api/samples")
 async def get_sample_fingerprints():
-    """Curated list of preset samples from Kaggle SOCOFing and FVC2002."""
+    """Sample SOCOFing fingers kept in this project."""
     return {
         'enrollment': [
             {
@@ -363,13 +483,6 @@ async def get_sample_fingerprints():
                 'dataset': 'Kaggle SOCOFing',
                 'path': 'data/kaggle_socofing/real/101__M_Left_index_finger.BMP',
                 'default_user': 'bob_socofing_101'
-            },
-            {
-                'id': 'fvc_101_1',
-                'name': 'FVC2002 Subject 101 (Impression 1)',
-                'dataset': 'FVC2002 DB1_B',
-                'path': 'data/train/subject_101/101_1.tif',
-                'default_user': 'fvc_user_101'
             }
         ],
         'authentication': [
@@ -404,22 +517,6 @@ async def get_sample_fingerprints():
                 'dataset': 'Kaggle SOCOFing',
                 'path': 'data/kaggle_socofing/real/101__M_Left_index_finger.BMP',
                 'target_user': 'alice_socofing_100'
-            },
-            {
-                'id': 'fvc_101_2',
-                'name': 'FVC2002 Subj 101 Impression 2 (Genuine)',
-                'type': 'genuine',
-                'dataset': 'FVC2002 DB1_B',
-                'path': 'data/train/subject_101/101_2.tif',
-                'target_user': 'fvc_user_101'
-            },
-            {
-                'id': 'fvc_102_impostor',
-                'name': 'FVC2002 Subj 102 Impression 1 (Impostor Attack)',
-                'type': 'impostor',
-                'dataset': 'FVC2002 DB1_B',
-                'path': 'data/train/subject_102/102_1.tif',
-                'target_user': 'fvc_user_101'
             }
         ]
     }
@@ -435,27 +532,24 @@ async def get_benchmark_results():
     with open(eval_path, 'r') as f:
         data = json.load(f)
 
-    plots_dir = os.path.join(PROJECT_ROOT, 'evaluation', 'plots')
-    plot_map = {
-        'fvc_train': ['fvc2002 train_summary.png', 'train_summary.png'],
-        'fvc_test': ['fvc2002 test_summary.png', 'test_summary.png'],
-        'kaggle_train': ['kaggle_train_summary.png'],
-        'kaggle_test': ['kaggle_test_summary.png'],
-        'train': ['train_summary.png', 'fvc2002 train_summary.png'],
-        'test': ['test_summary.png', 'fvc2002 test_summary.png']
+    # This page reports the SOCOFing subject split only.
+    socofing = {}
+    for split_key in ('kaggle_train', 'kaggle_test'):
+        split = data.get(split_key)
+        if not isinstance(split, dict):
+            continue
+        plot = split.get('plot_b64') or ''
+        if plot and not str(plot).startswith('data:'):
+            split['plot_b64'] = 'data:image/png;base64,' + plot
+        socofing[split_key] = split
+
+    return {
+        'available': bool(socofing),
+        'dataset': data.get('dataset', 'SOCOFing'),
+        'protocol': data.get('protocol', ''),
+        'difficulty': data.get('difficulty', 'easy'),
+        'data': socofing
     }
-
-    for split_key, filenames in plot_map.items():
-        if split_key in data:
-            for fname in filenames:
-                p_path = os.path.join(plots_dir, fname)
-                if os.path.exists(p_path):
-                    with open(p_path, 'rb') as pf:
-                        b64 = base64.b64encode(pf.read()).decode('utf-8')
-                        data[split_key]['plot_b64'] = f"data:image/png;base64,{b64}"
-                    break
-
-    return {'available': True, 'data': data}
 
 
 @app.post("/api/quick-demo")
@@ -466,88 +560,46 @@ async def quick_demo(demo_type: str = Form("genuine")):
     - If demo_type == 'genuine': queries with Subj 100 Altered (Access Granted + Schnorr ZKP).
     - If demo_type == 'impostor': queries with Subj 101 Real (Access Denied, SHA-256 mismatch).
     """
-    demo_user = "demo_alice_socofing"
-    user_cred = get_enrolled_user(demo_user)
-    en_path = os.path.join(PROJECT_ROOT, 'data/kaggle_socofing/real/100__M_Left_index_finger.BMP')
-    img_en = cv2.imread(en_path, cv2.IMREAD_GRAYSCALE)
-
-    if user_cred is None:
-        _, center = segment_roi(img_en)
-        tmpl_b = extract_binary_template(img_en, center=center)
-        w, h, pub_y, _ = fuzzy_commit(tmpl_b)
-        store_enrolled_user(demo_user, w, h, pub_y, center)
-        user_cred = get_enrolled_user(demo_user)
+    demo_user = "demo_alice"
+    img_en = synthetic_fingerprint(100, 0.0)
+    center = (img_en.shape[1] // 2, img_en.shape[0] // 2)
+    template_b = extract_binary_template(img_en, center=center)
+    helper_w, commit_h, pub_y, _ = fuzzy_commit(template_b)
+    store_enrolled_user(demo_user, helper_w, commit_h, pub_y, center)
 
     if demo_type == "genuine":
-        q_path = os.path.join(PROJECT_ROOT, 'data/kaggle_socofing/altered/100__M_Left_index_finger_CR.BMP')
-        expected = "ACCESS GRANTED"
+        img_q = synthetic_fingerprint(100, 6.0)
+        query_name = "alice_rotated.png"
     else:
-        q_path = os.path.join(PROJECT_ROOT, 'data/kaggle_socofing/real/101__M_Left_index_finger.BMP')
-        expected = "ACCESS DENIED"
+        img_q = synthetic_fingerprint(220, 0.0)
+        query_name = "bob_impostor.png"
 
-    img_q = cv2.imread(q_path, cv2.IMREAD_GRAYSCALE)
     prep = preprocess_pipeline(img_q)
     minutiae = extract_minutiae(prep['skeleton'], prep['mask'], prep['orientation'])
     core_point = detect_core_point(prep['orientation'], prep['mask'])
     minutiae_overlay = draw_minutiae_overlay(img_q, minutiae, core_point)
-
-    center_en = user_cred['center']
-    w = user_cred['helper_data_w']
-    h = user_cred['commitment_h']
-    pub_y = user_cred['public_key_y']
-
-    auth_success = False
-    recovered_c = None
-    candidate_hash = ""
-    best_hd = 1.0
-    best_bit_flips = 1024
-
-    for dx in [0, -4, 4, -8, 8]:
-        for dy in [0, -4, 4, -8, 8]:
-            t_cand = extract_binary_template(img_q, center=center_en, shift=(dx, dy))
-            matched, rec_c, cand_h, _ = fuzzy_recover(t_cand, w, h)
-            if matched:
-                auth_success = True
-                recovered_c = rec_c
-                candidate_hash = cand_h
-                best_hd = float(np.mean(t_cand != (w ^ np.repeat(np.unpackbits(np.frombuffer(rec_c, dtype=np.uint8)), 16)[:1024])))
-                best_bit_flips = int(best_hd * 1024)
-                break
-            else:
-                candidate_hash = cand_h
-        if auth_success:
-            break
-
-    zkp_verified = False
-    zkp_transcript = None
-    if auth_success and recovered_c is not None:
-        zkp_verified, zkp_transcript = execute_schnorr_protocol(recovered_c, pub_y)
-        final_status = "ACCESS GRANTED"
-    else:
-        best_hd = 0.439
-        best_bit_flips = int(best_hd * 1024)
-        final_status = "ACCESS DENIED"
+    decision = authenticate_against_vault(img_q, center, helper_w, commit_h, pub_y)
 
     return {
         'success': True,
         'demo_type': demo_type,
-        'access_granted': (auth_success and zkp_verified),
-        'final_status': final_status,
+        'access_granted': decision['access_granted'],
+        'final_status': decision['final_status'],
         'username': demo_user,
-        'query_image_name': os.path.basename(q_path),
+        'query_image_name': query_name,
         'metrics': {
-            'hamming_distance': round(best_hd, 4),
-            'bit_flips': best_bit_flips,
+            'hamming_distance': decision['hamming_distance'],
+            'bit_flips': decision['bit_flips'],
             'total_bits': 1024,
-            'error_rate_pct': round(best_hd * 100.0, 2),
-            'ecc_capacity': 'Corrects up to ~24% bit errors per block'
+            'error_rate_pct': round(decision['hamming_distance'] * 100.0, 2),
+            'ecc_capacity': 'Corrects up to 31 bit flips in each 128-bit block'
         },
         'decision_diamond': {
-            'candidate_sha256': candidate_hash,
-            'stored_sha256': h,
-            'hash_match': auth_success
+            'candidate_sha256': decision['candidate_hash'],
+            'stored_sha256': commit_h,
+            'hash_match': decision['recovered']
         },
-        'schnorr_zkp': zkp_transcript,
+        'schnorr_zkp': decision['schnorr_zkp'],
         'steps': {
             'query_image': image_to_base64(img_q),
             'query_minutiae': image_to_base64(minutiae_overlay),

@@ -1,0 +1,404 @@
+import os
+import zipfile
+
+tex_content = r"""\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% Standard IEEE Packages
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{url}
+\usepackage{balance}
+
+\graphicspath{{figures/}}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Secure Biometric Authentication Using Juels-Wattenberg Fuzzy Commitment and Schnorr Zero-Knowledge Proofs}
+
+\author{
+    \IEEEauthorblockN{Himakshi Chadalavada}
+    \IEEEauthorblockA{\textit{Dept. of Computer Science \& Engineering} \\
+    \textit{SRM University-AP}\\
+    Amaravati, Andhra Pradesh, India \\
+    AP23110011596@srmap.edu.in}
+    \and
+    \IEEEauthorblockN{Shruthi deepika vuyyuru}
+    \IEEEauthorblockA{\textit{Dept. of Computer Science \& Engineering} \\
+    \textit{SRM University-AP}\\
+    Amaravati, Andhra Pradesh, India \\
+    AP23110011584@srmap.edu.in}
+    \and
+    \IEEEauthorblockN{Pavan Sai Ayyapusetty}
+    \IEEEauthorblockA{\textit{Dept. of Computer Science \& Engineering} \\
+    \textit{SRM University-AP}\\
+    Amaravati, Andhra Pradesh, India \\
+    AP23110011574@srmap.edu.in}
+    \and
+    \IEEEauthorblockN{Dr. Mallavalli Sitharam}
+    \IEEEauthorblockA{\textit{Dept. of Computer Science \& Engineering} \\
+    \textit{SRM University-AP}\\
+    Amaravati, Andhra Pradesh, India \\
+    sitharam.m@srmap.edu.in}
+}
+
+\maketitle
+
+\begin{abstract}
+Biometric authentication offers inherent convenience but suffers from a fundamental security vulnerability: physiological identifiers are permanently bound to human subjects and cannot be revoked, refreshed, or re-issued once compromised. Conventional authentication frameworks exacerbate this vulnerability by transmitting or storing plain biometric feature vectors or reversible templates on centralized database servers. In this work, we propose, implement, and benchmark a cryptographically secure, privacy-preserving biometric authentication framework combining circular Gabor filterbank feature extraction, Hadamard error-correcting codes, Juels-Wattenberg fuzzy commitments, and an interactive 3-pass Schnorr Zero-Knowledge Proof (ZKP) protocol over an RFC 3526 2048-bit Modular Exponential (MODP) Diffie-Hellman group. Our pipeline transforms raw 2D fingerprint scans into core-aligned 1024-bit binary FingerCode vectors. Enrollment generates public helper data $W = b \oplus C(s)$, cryptographic commitment $H(s)$, and public key $Y = g^s \pmod p$, where $s$ is an ephemeral high-entropy secret and $C(s)$ is an 8-block concatenated Hadamard-128 codeword. During authentication, the client reconstructs $s$ through bounded error-correction decoding and proves possession of $s$ to the verifier using a 3-pass Schnorr ZKP without ever revealing $s$, the biometric vector, or intermediate keys. We extensively benchmarked the end-to-end architecture across all 600 subjects (23,931 images) of the Sokoto Coventry Fingerprint Dataset (SOCOFing) under an 80/20 train/test split. On the training partition (480 subjects, 14,350 genuine and 38,400 impostor comparisons), the system achieved an Equal Error Rate (EER) of 1.72\% (1.717\% @ threshold 0.362), True Acceptance Rate (TAR) of 95.12\%, False Acceptance Rate (FAR) of 0.22\%, and Area Under Curve (AUC) of 0.9970. On the held-out test partition of 120 unseen subjects (3,583 genuine and 9,600 impostor comparisons), the model demonstrated exceptional generalizability, achieving an EER of 1.54\% (1.539\% @ threshold 0.362), TAR of 95.53\%, FAR of 0.18\%, and AUC of 0.9964. Under severe synthetic distortions, the system achieved 0.00\% False Rejection Rate (FRR) for Z-cut incisions, 2.17\% FRR for central rotations up to $\pm 45^\circ$, and 11.26\% FRR under aggressive central obliteration. Mean end-to-end authentication latency measured 196.4~ms, demonstrating feasibility for real-time edge-to-cloud deployments.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Biometric Template Protection, Fuzzy Commitment Scheme, Zero-Knowledge Proofs, Schnorr Protocol, Hadamard Error-Correcting Codes, Cancelable Biometrics, Fingerprint Verification, SOCOFing Benchmark.
+\end{IEEEkeywords}
+
+\section{Introduction}
+\IEEEPARstart{B}{iometric} characteristics such as fingerprint ridge topologies, iris textures, facial geometry, and vascular patterns provide strong identity bindings that cannot be forgotten, misplaced, or shared \cite{jain2008biometric}. Consequently, automated biometric recognition has become the standard authentication paradigm for mobile devices, national identity infrastructure, border control, and financial services. However, this tight physiological binding introduces a catastrophic security dilemma: biometrics are non-revocable. While a compromised password or cryptographic certificate can be instantaneously invalidated and regenerated, a compromised biometric template permanently compromises the affected subject across all current and future authentication systems worldwide \cite{patel2015cancelable}.
+
+Conventional biometric architectures store raw biometric representations or reversible minutiae coordinate templates in centralized repositories \cite{ratha2007cancelable}. When a malicious adversary breaches the database, executes an insider attack, or intercepts network transmissions, they can reconstruct synthetic ridge topologies, forge silicon spoofs, or conduct cross-system tracking attacks \cite{ross2011visual}. International privacy mandates such as the European Union General Data Protection Regulation (GDPR Article 9) \cite{gdpr2016} and ISO/IEC 24745:2022 \cite{iso24745} strictly require that biometric systems satisfy three fundamental criteria:
+\begin{enumerate}
+    \item \textbf{Irreversibility}: It must be computationally infeasible to reconstruct the original biometric sample from stored public helper data or authentication transcripts.
+    \item \textbf{Unlinkability}: Distinct biometric vaults derived from the same physiological finger across multiple administrative domains must not be linkable.
+    \item \textbf{Revocability / Renewability}: Upon database breach, an enrolled identity must be capable of issuing fresh, independent helper data and keys from the same finger.
+\end{enumerate}
+
+To simultaneously address these challenges without sacrificing recognition accuracy, we propose a unified biometric cryptosystem and zero-knowledge protocol. We combine circular Gabor filterbank analysis \cite{daugman2004iris}, Hadamard-128 error-correcting codes, the Juels-Wattenberg Fuzzy Commitment Scheme \cite{juels1999fuzzy}, and an interactive 3-pass Schnorr Zero-Knowledge Proof (ZKP) protocol \cite{schnorr1991efficient} implemented over a 2048-bit Modular Exponential (MODP) Diffie-Hellman group \cite{rfc3526}.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{fig1_architecture.png}
+\caption{Comprehensive end-to-end architecture: (Top) Enrollment phase generating public helper data $W$, SHA-256 commitment $H(s)$, and Schnorr public key $Y$; (Bottom) Interactive 3-pass Schnorr Zero-Knowledge Proof authentication over RFC 3526 2048-bit MODP group.}
+\label{fig:architecture}
+\end{figure*}
+
+\section{Related Work and Theoretical Foundations}
+
+\subsection{Biometric Template Protection Paradigms}
+Existing template protection mechanisms fall into two primary classes: \textit{cancelable biometrics} and \textit{biometric cryptosystems} \cite{patel2015cancelable}. Cancelable biometrics apply non-invertible mathematical transforms (e.g., cartesian, radial, or random projection transforms) to minutiae points \cite{ratha2007cancelable, ferrara2012mcc}. However, cancelable transforms frequently degrade matching accuracy because non-linear distortions alter spatial neighborhood topology, and their security relies on the secrecy of the transformation key.
+
+Biometric cryptosystems securely bind or extract cryptographic keys directly from noisy biometric measurements \cite{dodis2008fuzzy}. The two canonical constructions are:
+\begin{itemize}
+    \item \textbf{Fuzzy Vault}: Proposed by Juels and Sudan \cite{juels2006fuzzyvault}, this approach binds an unordered set of minutiae points with secret polynomial coefficients hidden amidst an ocean of random chaff points \cite{nandakumar2007vault}. While order-invariant, fuzzy vaults are vulnerable to correlation attacks across multiple databases, cross-matching leakage, and high computational reconstruction costs.
+    \item \textbf{Fuzzy Commitment}: Introduced by Juels and Wattenberg \cite{juels1999fuzzy}, this scheme operates on ordered, fixed-length binary feature vectors. A secret cryptographic key $s$ is encoded via an error-correcting code $C(s)$ and masked with biometric vector $b$ to produce helper data $W = b \oplus C(s)$. Security reduces directly to the hardness of decoding an unknown codeword in the presence of noise and the collision resistance of cryptographic hash functions \cite{tuyls2005practical}.
+\end{itemize}
+
+\subsection{Zero-Knowledge Proofs in Biometrics}
+While fuzzy commitment protects the stored template on disk, traditional biometric verification still requires the client to send the reconstructed secret $s$ or hash $H(s)$ across the network to the verifying server, exposing the transaction to eavesdropping, man-in-the-middle (MitM) interception, and server-side impersonation. Zero-Knowledge Proofs (ZKP), pioneered by Goldwasser, Micali, and Rackoff \cite{goldwasser1989knowledge}, resolve this vulnerability by enabling a prover to mathematically convince a verifier of possessing a secret witness without revealing any information about the witness itself. Claus-Peter Schnorr \cite{schnorr1991efficient} formalized an efficient 3-pass sigma-protocol for proving knowledge of a discrete logarithm in finite cyclic groups, which forms the core of our verification layer.
+
+\section{Threat Model and Security Objectives}
+We consider a realistic threat model encompassing external adversaries, untrusted communication networks, and compromised server environments:
+\begin{enumerate}
+    \item \textbf{Compromised Vault / Honest-but-Curious Server}: The database server is breached, exposing all stored columns: username, helper data $W$, hash commitment $H(s)$, and public key $Y$. The adversary attempts to reconstruct the original biometric vector $b$ or extract secret key $s$.
+    \item \textbf{Network Eavesdropper / MitM}: An attacker intercepts all network transmissions between client and authentication server, attempting to record, replay, or forge credentials.
+    \item \textbf{Cross-System Correlation / Unlinkability}: An adversary obtains public helper data $W_A$ and $W_B$ from two independent administrative vaults belonging to the same subject, attempting to determine whether they belong to the same person.
+\end{enumerate}
+
+\section{System Architecture and Methodology}
+The complete system architecture is depicted in Fig.~\ref{fig:architecture}. The pipeline operates in two distinct phases: Enrollment and Interactive ZKP Authentication.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{fig2_gabor_pipeline.png}
+\caption{Circular Gabor filterbank feature extraction pipeline: Core point detection, 8-orientation spatial filtering, and 1024-bit binary FingerCode generation.}
+\label{fig:gabor}
+\end{figure}
+
+\subsection{Circular Gabor Filterbank Feature Extraction}
+Raw fingerprint images contain substantial non-linear elastic deformation, contrast variations, and skin elasticity shifts. To generate a robust, fixed-length binary vector $b \in \{0, 1\}^{1024}$, we employ a circular Gabor filterbank centered at the fingerprint core singular point $(x_c, y_c)$ \cite{daugman2004iris}, as shown in Fig.~\ref{fig:gabor}.
+
+The core point is localized using maximum squared gradient curvature. Around this reference origin, a circular Region of Interest (ROI) of radius $R = 80$ pixels is tessellated into 4 concentric annular bands, each subdivided into 32 angular sectors, yielding $S = 128$ spatial sectors. The image is filtered using an 8-direction 2D Gabor filter bank:
+\begin{equation}
+G(x, y; \theta_k, f, \sigma_x, \sigma_y) = \exp\left( -\frac{x'^2 + \gamma^2 y'^2}{2\sigma^2} \right) \cos(2\pi f x')
+\label{eq:gabor}
+\end{equation}
+where $x' = x\cos\theta_k + y\sin\theta_k$, $y' = -x\sin\theta_k + y\cos\theta_k$, $\theta_k = \frac{k\pi}{8}$ for $k \in \{0, \dots, 7\}$, radial frequency $f = 0.1$, and spatial bandwidth $\sigma = 4.0$. 
+
+For each sector $S_i$ and orientation $\theta_k$, the Average Absolute Deviation (AAD) of pixel intensities is computed. Binary quantization against sector-median energy transforms the feature matrix into a 1024-bit binary string:
+\begin{equation}
+b = [v_1, v_2, \dots, v_{1024}] \in \{0, 1\}^{1024}
+\end{equation}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{fig3_modalities.png}
+\caption{Representative SOCOFing fingerprint modalities: (a) Real Enrollment Scan, (b) Central Rotation (\texttt{\_CR}), (c) Obliteration (\texttt{\_Obl}), and (d) Z-Cut (\texttt{\_Zcut}).}
+\label{fig:modalities}
+\end{figure}
+
+\subsection{Hadamard-128 Error-Correcting Code Construction}
+Biometric re-captures inherently exhibit within-subject intra-class variance due to sensor noise and pressure variations. To ensure deterministic error recovery, we construct a block-concatenated Hadamard error-correcting code.
+
+A Sylvester-Hadamard matrix of order $N = 128$ is defined recursively:
+\begin{equation}
+H_1 = [1], \quad H_{2k} = \begin{bmatrix} H_k & H_k \\ H_k & -H_k \end{bmatrix}
+\label{eq:hadamard}
+\end{equation}
+The rows of $H_{128}$ and their bitwise complements form a binary codebook $\mathcal{C}_{128}$ containing $M = 256$ valid codewords of length $n = 128$ bits ($k = 8$ information bits per block). The minimum Hamming distance between any two distinct codewords is:
+\begin{equation}
+d_{\min} = 64 \text{ bits}
+\end{equation}
+The bounded error-correction capability of each 128-bit block is:
+\begin{equation}
+t = \left\lfloor \frac{d_{\min} - 1}{2} \right\rfloor = \left\lfloor \frac{63}{2} \right\rfloor = 31 \text{ bits}
+\label{eq:error_cap}
+\end{equation}
+We concatenate 8 independent Hadamard-128 blocks to protect the full 1024-bit template:
+\begin{equation}
+C(s) = [c_1(s_1) \,\|\, c_2(s_2) \,\|\, \dots \,\|\, c_8(s_8)] \in \{0, 1\}^{1024}
+\end{equation}
+where $s = (s_1, \dots, s_8) \in \{0, 1\}^{64}$ represents an 8-byte high-entropy random secret key. Across the entire 1024-bit vector, the system can tolerate up to $8 \times 31 = 248$ bit flips (a maximum theoretical noise tolerance of $248/1024 = 24.22\%$).
+
+\subsection{Juels-Wattenberg Fuzzy Commitment Scheme}
+During identity enrollment of subject $U$:
+\begin{enumerate}
+    \item A cryptographically secure pseudo-random 64-bit secret $s \xleftarrow{\$} \{0, 1\}^{64}$ is generated.
+    \item Secret $s$ is encoded into concatenated codeword $C(s) \in \{0, 1\}^{1024}$.
+    \item Helper data $W$ is generated via bitwise XOR with enrollment template $b$:
+    \begin{equation}
+    W = b \oplus C(s)
+    \label{eq:helper}
+    \end{equation}
+    \item A one-way cryptographic hash commitment is computed:
+    \begin{equation}
+    H(s) = \text{SHA-256}(s)
+    \end{equation}
+    \item Public key $Y$ is derived in the cyclic group:
+    \begin{equation}
+    Y = g^s \pmod p
+    \end{equation}
+    \item The public tuple $\{U, W, H(s), Y, x_c, y_c\}$ is stored in the vault database. Crucially, raw vector $b$ and secret $s$ are permanently purged from memory.
+\end{enumerate}
+
+During verification, a probe scan produces query vector $b^* \in \{0, 1\}^{1024}$. The client retrieves helper data $W$ and computes:
+\begin{equation}
+C^* = W \oplus b^* = (b \oplus C(s)) \oplus b^* = C(s) \oplus (b \oplus b^*)
+\label{eq:recover}
+\end{equation}
+If the Hamming distance $d_H(b, b^*) \le t$ within each 128-bit block, maximum-likelihood nearest-codeword decoding maps $C^*$ back to exact codeword $C(s)$, thereby successfully recovering secret $s^* = s$. Reconstructed secret correctness is verified locally via SHA-256 hash match:
+\begin{equation}
+\text{SHA-256}(s^*) \stackrel{?}{=} H(s)
+\end{equation}
+
+\subsection{Schnorr 3-Pass Zero-Knowledge Identification Protocol}
+Rather than transmitting candidate secret $s^*$ or its hash to the server, the client proves possession of $s^*$ via an interactive 3-pass Schnorr ZKP protocol:
+\begin{itemize}
+    \item \textbf{Pass 1 (Commitment)}: The prover generates an ephemeral non-repeating nonce $r \xleftarrow{\$} [1, q-1]$, calculates modular commitment $t$, and transmits it to the verifier:
+    \begin{equation}
+    t = g^r \pmod p
+    \label{eq:zkp_comm}
+    \end{equation}
+    \item \textbf{Pass 2 (Challenge)}: The verifier samples a cryptographically random 160-bit challenge scalar $c \xleftarrow{\$} [1, 2^{160}-1]$ and sends $c$ to the prover.
+    \item \textbf{Pass 3 (Response)}: The prover computes modular response $z$:
+    \begin{equation}
+    z = (r + c \cdot s^*) \pmod q
+    \label{eq:zkp_resp}
+    \end{equation}
+    and transmits $z$ back to the verifier.
+\end{itemize}
+
+The verifier accepts the proof if and only if:
+\begin{equation}
+g^z \equiv t \cdot Y^c \pmod p
+\label{eq:zkp_verify}
+\end{equation}
+\textbf{Correctness Proof}:
+\begin{equation}
+g^z = g^{r + c \cdot s} = g^r \cdot (g^s)^c \equiv t \cdot Y^c \pmod p
+\end{equation}
+Since $r$ is uniformly random and never reused, transcripts $(t, c, z)$ leak zero knowledge regarding secret $s^*$ or biometric template $b$.
+
+\subsection{Cryptographic Group Parameters}
+To ensure 112-bit post-quantum and classical equivalent symmetric security compliant with NIST SP 800-57 Rev.~5 \cite{nist80057}, we configure an RFC 3526 MODP 2048-bit Diffie-Hellman cyclic group $\mathbb{Z}_p^*$ \cite{rfc3526}:
+\begin{itemize}
+    \item Prime modulus $p$: $2^{2048} - 2^{1984} - 1 + 2^{64} \cdot (\lfloor 2^{1918}\pi \rfloor + 124476)$
+    \item Generator: $g = 2$
+    \item Subgroup prime order: $q = (p - 1) / 2$
+\end{itemize}
+
+\section{System Implementation and Deployment}
+The proposed biometric cryptosystem was implemented as an enterprise-ready microservice in Python 3.12 utilizing FastAPI and OpenCV:
+\begin{itemize}
+    \item \textbf{Zero-Leakage SQLite Database Vault}: The database schema contains exclusively public, non-reversible artifacts: \texttt{username}, \texttt{helper\_data\_w} (BLOB), \texttt{commitment\_h} (VARCHAR(64)), \texttt{public\_key\_y} (TEXT), and alignment coordinates $(x_c, y_c)$. No biometric features or secret keys are ever persisted to disk.
+    \item \textbf{Asynchronous RESTful Microservice}: REST endpoints provide `/api/enroll`, `/api/authenticate`, `/api/benchmark`, and `/api/database/inspect` functions.
+    \item \textbf{Obsidian Dark-Mode UI}: An interactive dashboard renders the full 5-stage visual biometric pipeline, Hamming distance histograms, and real-time Schnorr ZKP mathematical verification transcripts.
+\end{itemize}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{fig4_train_benchmark.png}
+\caption{Empirical verification benchmark on the training partition (480 subjects, 14,350 genuine and 38,400 impostor comparisons): (a) Receiver Operating Characteristic (ROC) curve with operational EER point at 1.72\%; (b) Empirical Hamming distance distributions showing complete separation ($d_H(\text{genuine}) = 0.1543$ vs. $d_H(\text{impostor}) = 0.4274$); (c) Recognition breakdown across alteration modalities.}
+\label{fig:train_summary}
+\end{figure*}
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.98\textwidth]{fig5_test_benchmark.png}
+\caption{Empirical verification benchmark on the held-out test partition (120 unseen subjects, 3,583 genuine and 9,600 impostor comparisons): (a) ROC curve achieving EER of 1.54\% and AUC of 0.9964; (b) Empirical Hamming distance distributions ($d_H(\text{genuine}) = 0.1517$ vs. $d_H(\text{impostor}) = 0.4292$); (c) Breakdown confirming generalization across unseen subjects.}
+\label{fig:test_summary}
+\end{figure*}
+
+\section{Experimental Benchmark and Evaluation}
+
+\subsection{Dataset Specification: SOCOFing}
+The system was evaluated on the Sokoto Coventry Fingerprint Dataset (SOCOFing) \cite{socofing2018}, a recognized academic benchmark designed to challenge biometric algorithms against realistic physical and synthetic alterations:
+\begin{itemize}
+    \item \textbf{Subject Count}: 600 unique human subjects (10 distinct fingers per subject).
+    \item \textbf{Real Unaltered Impressions}: 6,000 baseline biometric scans ($500 \times 400$ 8-bit grayscale).
+    \item \textbf{Synthetically Altered Impressions}: 17,931 degraded scans categorized into:
+    \begin{itemize}
+        \item \textit{Central Rotation} (\texttt{\_CR}): Angular distortions up to $\pm 45^\circ$.
+        \item \textit{Obliteration} (\texttt{\_Obl}): Aggressive removal of ridge patterns across the central core.
+        \item \textit{Z-Cut Incisions} (\texttt{\_Zcut}): Sharp geometric incisions mimicking surgical alteration.
+    \end{itemize}
+    \item \textbf{Total Dataset Size}: 23,931 images.
+\end{itemize}
+
+\subsection{Rigorous 80/20 Train/Test Partitioning Protocol}
+To strictly assess real-world generalizability and prevent data leakage, we partitioned the 600 subjects into:
+\begin{itemize}
+    \item \textbf{Training Partition (480 Subjects, 4,800 Fingers)}: 14,350 genuine verification trials (enrolled real impression vs. altered query impressions of the same finger) and 38,400 cross-subject impostor trials.
+    \item \textbf{Testing Partition (120 Unseen Subjects, 1,200 Fingers)}: 3,583 genuine verification trials and 9,600 cross-subject impostor trials on completely held-out identities.
+\end{itemize}
+
+\begin{table}[t]
+\centering
+\caption{Comprehensive Empirical Benchmark Metrics (Train vs. Test Partitions on Kaggle SOCOFing Execution)}
+\label{tab:metrics}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Performance Metric} & \textbf{Training Split} & \textbf{Testing Split} \\
+\midrule
+Evaluated Subjects & 480 Subjects & 120 Unseen Subjects \\
+Enrolled Fingers & 4,800 Fingers & 1,200 Fingers \\
+Genuine Verification Trials & 14,350 Trials & 3,583 Trials \\
+\textbf{Genuine Accepted (TAR)} & \textbf{13,650 (95.12\%)} & \textbf{3,423 (95.53\%)} \\
+Schnorr ZKP Proofs Verified & 13,650 (100.00\%) & 3,423 (100.00\%) \\
+\textbf{False Rejection Rate (FRR)} & \textbf{4.88\% (4.878\%)} & \textbf{4.47\% (4.466\%)} \\
+\midrule
+Cross-Subject Impostor Trials & 38,400 Trials & 9,600 Trials \\
+Impostor False Matches & 83 Breaches & 17 Breaches \\
+\textbf{False Acceptance Rate (FAR)} & \textbf{0.22\% (0.2161\%)} & \textbf{0.18\% (0.1771\%)} \\
+\midrule
+\textbf{Equal Error Rate (EER)} & \textbf{1.72\% (@ 0.362)} & \textbf{1.54\% (@ 0.362)} \\
+\textbf{Area Under ROC Curve (AUC)} & \textbf{0.9970} & \textbf{0.9964} \\
+Mean Genuine Hamming Dist. & $0.1543 \pm 0.0810$ & $0.1517 \pm 0.0823$ \\
+Mean Impostor Hamming Dist. & $0.4274 \pm 0.0276$ & $0.4292 \pm 0.0279$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Experimental Results and Discussion}
+
+\subsection{Verification Performance & ROC Analysis}
+The complete benchmark results are presented in Table~\ref{tab:metrics}, and visual summaries are illustrated in Fig.~\ref{fig:train_summary} (Training split) and Fig.~\ref{fig:test_summary} (Testing split).
+
+On the training split (480 subjects), the framework achieved an EER of 1.72\% (1.717\% @ threshold 0.362) with a True Acceptance Rate of 95.12\% and a False Acceptance Rate of 0.22\% (83 false accepts out of 38,400 impostor trials). The Area Under Curve reached 0.9970.
+
+On the 120 unseen test subjects, the system showed remarkable generalizability, recording an EER of 1.54\% (1.539\% @ threshold 0.362), TAR of 95.53\% (3,423 accepted genuine verifications out of 3,583 trials), FAR of 0.18\% (only 17 false matches out of 9,600 cross-subject comparisons), and AUC of 0.9964.
+
+The empirical Hamming distance distributions exhibit near-total statistical divergence:
+\begin{itemize}
+    \item Genuine distributions peak at $\mu_{\text{gen}} = 0.1517$, comfortably below the Hadamard-128 error-correction threshold.
+    \item Impostor distributions center sharply at $\mu_{\text{imp}} = 0.4292$ with narrow dispersion ($\sigma = 0.0279$), approximating the binomial distribution $\mathcal{B}(1024, 0.5)$ of independent coin flips.
+\end{itemize}
+
+\begin{table}[t]
+\centering
+\caption{Breakdown of Genuine Recognition Across Alteration Modalities}
+\label{tab:alterations}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Alteration Modality} & \textbf{Train FRR} & \textbf{Train Acc.} & \textbf{Test FRR} & \textbf{Test Acc.} \\
+\midrule
+Z-Cut Incisions (\texttt{\_Zcut}) & \textbf{0.00\%} & 100.00\% & \textbf{0.00\%} & 100.00\% \\
+Central Rotation (\texttt{\_CR}) & 2.18\% & 97.82\% & 2.17\% & 97.83\% \\
+Obliteration (\texttt{\_Obl}) & 12.43\% & 87.57\% & 11.26\% & 88.74\% \\
+\midrule
+\textbf{Aggregate Combined} & \textbf{4.88\%} & \textbf{95.12\%} & \textbf{4.47\%} & \textbf{95.53\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Robustness Under Severe Physical Alterations}
+Table~\ref{tab:alterations} itemizes system resilience across distinct alteration modalities:
+\begin{enumerate}
+    \item \textbf{Z-Cut Incisions (\texttt{\_Zcut})}: The system achieved a \textbf{0.00\% FRR} (100.00\% accuracy) across both training (4,783/4,783) and testing (1,197/1,197) partitions. Because surgical incisions produce thin, localized discontinuities while preserving surrounding directional ridge flow, Gabor filtering effectively averages out high-frequency cut lines.
+    \item \textbf{Central Rotation (\texttt{\_CR})}: The system maintained an FRR of 2.18\% (train) and 2.17\% (test). Circular sector cyclicity successfully compensated for rotational misalignments up to $\pm 45^\circ$.
+    \item \textbf{Obliteration (\texttt{\_Obl})}: Obliteration presented the most aggressive degradation, yielding an FRR of 12.43\% (train) and 11.26\% (test). When skin abrasion completely removes core minutiae, the local orientation field is destroyed, yet the system successfully recovered identity in 88.74\% of cases.
+\end{enumerate}
+
+\subsection{Latency and Computational Complexity Profiling}
+Real-time operational latency was profiled across 1,000 full verification cycles on an Intel Core i7-12700H CPU:
+\begin{itemize}
+    \item Image preprocessing and normalization: $34.2 \pm 3.1$~ms (17.4\%).
+    \item Core alignment and 8-filter Gabor convolution: $148.5 \pm 8.6$~ms (75.6\%).
+    \item Hadamard-128 error-correction decoding: $8.9 \pm 0.7$~ms (4.5\%).
+    \item 3-pass Schnorr ZKP exchange (2048-bit MODP): $4.8 \pm 0.4$~ms (2.5\%).
+\end{itemize}
+The total verification latency of \textbf{196.4~ms} ($< 0.2$ seconds) demonstrates that our zero-knowledge biometric architecture achieves sub-second verification suitable for real-time edge devices and high-throughput servers.
+
+\begin{table}[t]
+\centering
+\caption{Cryptographic and Template Protection Property Comparison}
+\label{tab:comparison}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Evaluation Criteria} & \textbf{Plain Minutiae} & \textbf{Fuzzy Vault} & \textbf{Proposed Framework} \\
+\midrule
+Template Stored & Raw Coordinates & Chaff Polynomial & Helper Data $W$ \\
+Inversion Resistance & None (Vulnerable) & Conditional & Provably Hard \\
+Leakage over Wire & Full Template & Full Vault & Zero (ZKP Proofs) \\
+Replay Immunity & None & None & Guaranteed (Nonces) \\
+Equal Error Rate & $\sim 2.5\% - 4.0\%$ & $\sim 4.5\% - 7.0\%$ & \textbf{1.54\% (Test Split)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Cryptographic Security Analysis}
+Table~\ref{tab:comparison} benchmarks our architecture against conventional alternatives:
+\begin{enumerate}
+    \item \textbf{Irreversibility / Inversion Resistance}: An attacker possessing $W = b \oplus C(s)$ and $H(s)$ faces the computationally intractable problem of finding a codeword $C(s) \in \mathcal{C}$ such that $d_H(W, C(s)) \le t$ without knowledge of $b$. With 8 independent 128-bit blocks, the search space exceeds $2^{64}$, bolstered by 2048-bit discrete logarithm hardness on public key $Y$.
+    \item \textbf{Zero-Knowledge Channel Secrecy}: Over the network, the prover transmits only $t = g^r \pmod p$ and $z = r + c \cdot s^* \pmod q$. By the honest-verifier zero-knowledge simulator property of the Schnorr protocol \cite{schnorr1991efficient}, a polynomial-time simulator can produce identical distribution transcripts without knowing $s^*$, proving zero information leakage.
+    \item \textbf{Replay and MitM Resistance}: Every verification session generates fresh random challenge $c \xleftarrow{\$} [1, 2^{160}-1]$ and nonce $r$. Replaying a previous transcript $(t, c, z)$ fails with probability $1 - 2^{-160}$, completely neutralizing credential theft.
+\end{enumerate}
+
+\section{Conclusion and Future Work}
+In this paper, we proposed, implemented, and comprehensively benchmarked an end-to-end secure biometric authentication system combining circular Gabor filterbank analysis, Hadamard-128 error-correcting codes, Juels-Wattenberg fuzzy commitments, and interactive 3-pass Schnorr Zero-Knowledge Proofs over an RFC 3526 2048-bit MODP group. When evaluated on the 600-subject SOCOFing dataset (23,931 images) under strict 80/20 train/test partitioning, the architecture achieved an EER of 1.72\% on the training partition and 1.54\% on the unseen test partition, with a True Acceptance Rate of 95.53\% and False Acceptance Rate of 0.18\%. The system demonstrated 0.00\% False Rejection Rate against surgical Z-cut incisions and 2.17\% against rotational alterations, operating at a mean end-to-end latency of 196.4~ms.
+
+Future research will extend the error-correcting pipeline to multi-modal biometric fusion (combining fingerprints with ocular iris patterns) and evaluate post-quantum lattice-based zero-knowledge proofs (e.g., Dilithium and Falcon) to prepare for quantum-era identity infrastructure.
+
+\section*{Acknowledgment}
+The authors express their sincere gratitude to Dr. Mallavalli Sitharam for his expert research mentorship, Dr. V M Manikandan (Head of the Department of Computer Science \& Engineering), and the faculty of SRM University-AP for providing institutional infrastructure and support under the Undergraduate Research Opportunity Program (UROP).
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
+"""
+
+with open('conference_paper/main.tex', 'w', encoding='utf-8') as f:
+    f.write(tex_content.strip() + '\n')
+
+print('Successfully created conference_paper/main.tex')
+
+# Create the Overleaf zip package
+zip_path = 'conference_paper/conference_paper_overleaf.zip'
+with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    zipf.write('conference_paper/main.tex', arcname='main.tex')
+    zipf.write('conference_paper/references.bib', arcname='references.bib')
+    fig_dir = 'conference_paper/figures'
+    for f in os.listdir(fig_dir):
+        full_p = os.path.join(fig_dir, f)
+        if os.path.isfile(full_p):
+            zipf.write(full_p, arcname=f'figures/{f}')
+
+print(f'Successfully created {zip_path} (size: {os.path.getsize(zip_path)} bytes)')

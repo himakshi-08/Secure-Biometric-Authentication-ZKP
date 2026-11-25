@@ -121,14 +121,14 @@ From the reviewed literature, four major research gaps are identified:
 The proposed framework closes these research gaps by integrating circular Gabor filterbanks, Hadamard-128 error-correcting codes, and an interactive Schnorr ZKP, achieving an EER of 1.54\% and 0.00\% FRR against surgical cuts.
 
 \section{Methodology}
-The organized workflow of the proposed secure biometric authentication framework consists of five stages: data acquisition, preprocessing, circular Gabor feature extraction, fuzzy commitment generation, and interactive Schnorr zero-knowledge proof verification. Fig.~\ref{fig:methodology} illustrates the end-to-end architecture.
+The organized workflow of the proposed secure biometric authentication framework consists of five stages: data acquisition, preprocessing, circular Gabor feature extraction, fuzzy commitment generation, and interactive Schnorr zero-knowledge proof verification. Fig.~\ref{fig:methodology} illustrates the end-to-end architecture for identity enrollment (login setup) and zero-knowledge authentication (login verification).
 
-\begin{figure}[H]
+\begin{figure*}[t]
     \centering
-    \includegraphics[width=\linewidth]{diag.png}
-    \caption{End-to-end architecture of the proposed secure biometric authentication framework: (Top) Enrollment generating public helper data $W$ and Schnorr public key $Y$; (Bottom) Interactive 3-pass Schnorr ZKP verification over RFC 3526 2048-bit MODP group.}
+    \includegraphics[width=\textwidth]{diag.png}
+    \caption{Architecture of the proposed model: Phase 1 illustrates Identity Enrollment \& Vault Registration (Login Setup), where raw fingerprints are converted into public helper data $W$ and Schnorr public key $Y$; Phase 2 illustrates Zero-Knowledge Authentication (Login Verification), where the client recovers secret $s^*$ through Hadamard-128 bounded decoding and proves possession via a 3-pass Schnorr ZKP without transmitting secrets over the wire.}
     \label{fig:methodology}
-\end{figure}
+\end{figure*}
 
 \subsection{Datasets}
 We evaluate the framework on the Sokoto Coventry Fingerprint Dataset (SOCOFing) \cite{socofing2018}, a comprehensive biometric benchmark comprising 600 unique human subjects (10 fingers per subject) and 23,931 total images. As depicted in Fig.~\ref{fig:modalities}, the dataset incorporates:
@@ -222,27 +222,44 @@ g^z \equiv t \cdot Y^c \pmod p
 Because $g^z = g^{r + c \cdot s} = g^r \cdot (g^s)^c \equiv t \cdot Y^c \pmod p$, the proof succeeds deterministically for genuine claimants while leaking zero knowledge to passive or active eavesdroppers.
 
 \section{Results and Discussion}
-The performance of the proposed framework was evaluated using standard biometric verification metrics: True Acceptance Rate (TAR), False Acceptance Rate (FAR), False Rejection Rate (FRR), Equal Error Rate (EER), and Area Under the ROC Curve (AUC).
+The performance of the proposed framework was evaluated across all 600 subjects of the SOCOFing benchmark under an 80/20 train/test split. Table~\ref{tab:metrics} itemizes the complete empirical metrics recorded from the full Kaggle execution.
 
-\subsection{Training Split Verification Performance}
-The training partition comprised 480 subjects (4,800 enrolled fingers) evaluated over 14,350 genuine verification trials and 38,400 cross-subject impostor trials. As shown in Fig.~\ref{fig:train_results}, the system achieved an EER of 1.72\% (1.717\% @ threshold 0.362). The genuine accepted count reached 13,650 out of 14,350 trials (TAR = 95.12\%, FRR = 4.88\%). All 13,650 accepted genuine trials completed the 3-pass Schnorr ZKP with 100.00\% mathematical verification. Among 38,400 cross-subject impostor comparisons, only 83 false acceptances occurred, yielding an exceptionally low FAR of 0.22\% (0.2161\%) and an AUC of 0.9970.
+\begin{table}[H]
+\centering
+\caption{Comprehensive Empirical Benchmark Metrics (Train vs. Test Partitions on Kaggle SOCOFing Execution)}
+\label{tab:metrics}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Performance Metric} & \textbf{Training Split} & \textbf{Testing Split} \\
+\midrule
+Evaluated Subjects & 480 Subjects & 120 Unseen Subjects \\
+Enrolled Fingers & 4,800 Fingers & 1,200 Fingers \\
+Genuine Verification Trials & 14,350 Trials & 3,583 Trials \\
+\textbf{Genuine Accepted (TAR)} & \textbf{13,650 (95.12\%)} & \textbf{3,423 (95.53\%)} \\
+Schnorr ZKP Proofs Verified & 13,650 (100.00\%) & 3,423 (100.00\%) \\
+\textbf{False Rejection Rate (FRR)} & \textbf{4.88\% (4.878\%)} & \textbf{4.47\% (4.466\%)} \\
+\midrule
+Cross-Subject Impostor Trials & 38,400 Trials & 9,600 Trials \\
+Impostor False Matches & 83 Breaches & 17 Breaches \\
+\textbf{False Acceptance Rate (FAR)} & \textbf{0.22\% (0.2161\%)} & \textbf{0.18\% (0.1771\%)} \\
+\midrule
+\textbf{Equal Error Rate (EER)} & \textbf{1.72\% (@ 0.362)} & \textbf{1.54\% (@ 0.362)} \\
+\textbf{Area Under ROC Curve (AUC)} & \textbf{0.9970} & \textbf{0.9964} \\
+Mean Genuine Hamming Dist. & $0.1543 \pm 0.0810$ & $0.1517 \pm 0.0823$ \\
+Mean Impostor Hamming Dist. & $0.4274 \pm 0.0276$ & $0.4292 \pm 0.0279$ \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-\begin{figure}[H]
+\subsection{Testing Split Performance on 120 Unseen Subjects}
+To rigorously assess real-world generalizability, Fig.~\ref{fig:test_results} illustrates the empirical performance on the held-out test split of 120 unseen subjects (3,583 genuine and 9,600 cross-subject impostor comparisons). The framework achieved an EER of 1.54\% (1.539\% @ threshold 0.362), TAR of 95.53\% (3,423/3,583), FRR of 4.47\%, and FAR of 0.18\% (only 17 false matches out of 9,600 trials), with an AUC of 0.9964. The genuine Hamming distance distribution ($0.1517 \pm 0.0823$) and impostor distribution ($0.4292 \pm 0.0279$) demonstrated near-complete statistical divergence.
+
+\begin{figure*}[t]
     \centering
-    \includegraphics[width=\linewidth]{results_train.png}
-    \caption{Training partition verification performance on 480 subjects (14,350 genuine and 38,400 impostor comparisons): (a) ROC curve with EER point at 1.72\%; (b) Empirical Hamming distance distributions ($d_H(\text{genuine}) = 0.1543$ vs. $d_H(\text{impostor}) = 0.4274$); (c) Performance across alteration types.}
-    \label{fig:train_results}
-\end{figure}
-
-\subsection{Testing Split Performance on Unseen Subjects}
-To rigorously establish generalization, the model was tested on 120 completely unseen subjects (1,200 fingers) over 3,583 genuine trials and 9,600 cross-subject impostor trials. As shown in Fig.~\ref{fig:test_results}, the system achieved an EER of 1.54\% (1.539\% @ threshold 0.362), TAR of 95.53\% (3,423/3,583), FRR of 4.47\%, and FAR of 0.18\% (only 17 false matches out of 9,600 trials), with an AUC of 0.9964. The genuine Hamming distance distribution ($0.1517 \pm 0.0823$) and impostor distribution ($0.4292 \pm 0.0279$) demonstrated near-complete statistical separation.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\linewidth]{results_test.png}
-    \caption{Held-out test partition performance on 120 unseen subjects (3,583 genuine and 9,600 impostor comparisons): (a) ROC curve achieving EER = 1.54\% and AUC = 0.9964; (b) Distinct Hamming distance distributions; (c) Robust generalization across alteration categories.}
+    \includegraphics[width=\textwidth]{results_test.png}
+    \caption{Empirical verification benchmark on the held-out test partition (120 unseen subjects, 3,583 genuine and 9,600 impostor comparisons): (a) Receiver Operating Characteristic (ROC) curve achieving an operational EER of 1.54\% and an AUC of 0.9964; (b) Distinct empirical Hamming distance distributions showing complete separation ($d_H(\text{genuine}) = 0.1517$ vs. $d_H(\text{impostor}) = 0.4292$); (c) Recognition breakdown confirming robust generalization across unseen altered subjects.}
     \label{fig:test_results}
-\end{figure}
+\end{figure*}
 
 \subsection{Performance Across Alteration Modalities}
 Table~\ref{tab:alterations} presents a granular breakdown of verification performance across specific physical alteration modalities:

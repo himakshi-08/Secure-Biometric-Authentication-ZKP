@@ -84,45 +84,47 @@ Biometric template protection has been extensively investigated across two prima
 \centering
 \caption{Summary of Related Work on Biometric Template Protection}
 \label{tab:litreview}
-\setlength{\tabcolsep}{4pt}
-\begin{tabular}{p{1.6cm} p{2.1cm} p{2.3cm} p{1.3cm}}
+\setlength{\tabcolsep}{2.5pt}
+\renewcommand{\arraystretch}{1.08}
+\footnotesize
+\begin{tabular}{p{1.6cm} p{1.9cm} p{2.1cm} c}
 \toprule
-\textbf{Author (Year)} & \textbf{Modality / Feature} & \textbf{Protection Scheme} & \textbf{Reported EER} \\
+\textbf{Author (Year)} & \textbf{Modality / Feature} & \textbf{Protection Scheme} & \textbf{EER} \\
 \midrule
-Ratha et al. \cite{ratha2007cancelable} & Minutiae Points & Cancelable Transforms & $\sim 4.50\%$ \\
-Nandakumar \cite{nandakumar2007vault} & Minutiae + Orientation & Fuzzy Vault (Chaff) & $\sim 5.50\%$ \\
-Tuyls et al. \cite{tuyls2005practical} & Binary Gabor & Fuzzy Commit (BCH) & $\sim 3.20\%$ \\
-Ferrara et al. \cite{ferrara2012mcc} & Minutia Cylinders & Non-invertible MCC & $\sim 2.80\%$ \\
-Kiviharju \cite{socofing2018} & SOCOFing Alterations & Baseline Deep CNN & $\sim 3.80\%$ \\
-\textbf{Proposed} & \textbf{Gabor + Hadamard} & \textbf{Fuzzy + Schnorr ZKP} & \textbf{1.54\% (Test)} \\
+Ratha \cite{ratha2007cancelable} & Minutiae Points & Cancelable Transforms & $\sim 4.50\%$ \\
+Nandakumar \cite{nandakumar2007vault} & Minutiae + Orient. & Fuzzy Vault (Chaff) & $\sim 5.50\%$ \\
+Tuyls \cite{tuyls2005practical} & Binary Gabor & Fuzzy Commit (BCH) & $\sim 3.20\%$ \\
+Ferrara \cite{ferrara2012mcc} & Minutia Cylinders & Non-invertible MCC & $\sim 2.80\%$ \\
+Kiviharju \cite{socofing2018} & SOCOFing Alter. & Baseline Deep CNN & $\sim 3.80\%$ \\
+\textbf{Proposed} & \textbf{Gabor + Hadamard} & \textbf{Fuzzy + Schnorr ZKP} & \textbf{1.54\%} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \subsection{Research Gaps}
 From the reviewed literature, four major research gaps are identified:
-\begin{itemize}
+\begin{itemize}[leftmargin=*, itemsep=2pt]
     \item \textbf{Performance Degradation}: Most template protection techniques induce substantial recognition penalties, causing EER to increase from 2\% (unprotected) up to 5\%--8\% due to alignment sensitivity and chaff noise.
     \item \textbf{Replay and Channel Vulnerabilities}: Existing fuzzy commitment systems require sending the decoded secret $C'$ or $H(C')$ to the server, leaving authentication transactions vulnerable to eavesdropping and replay attacks.
     \item \textbf{Fragility Against Physical Alterations}: Conventional minutiae matchers fail catastrophically when fingerprints suffer physical degradation such as surgical cuts or obliteration.
     \item \textbf{Lack of Unseen Subject Generalization}: Most evaluations benchmark on identical training subjects without validating on completely disjoint, held-out subject cohorts.
 \end{itemize}
 
-The proposed framework closes these research gaps by integrating circular Gabor filterbanks, Hadamard-128 error-correcting codes, and an interactive Schnorr ZKP, achieving an EER of 1.54\% and 0.00\% FRR against surgical cuts.
-
-\begin{figure}[!t]
-    \centering
-    \includegraphics[width=0.74\columnwidth]{diag.png}
-    \caption{Secure Fingerprint Authentication System flow diagram: Enrollment Phase (left) generating public helper data $W$, hash commitment $H$, and public key $Y$; Authentication Phase (right) executing fuzzy recovery, SHA-256 integrity verification, and 3-pass Schnorr Zero-Knowledge Proof (ZKP) verification.}
-    \label{fig:methodology}
-\end{figure}
+The proposed framework resolves these research gaps by integrating circular Gabor filterbanks, Hadamard-128 error-correcting codes, and an interactive Schnorr ZKP, achieving an EER of 1.54\% and 0.00\% FRR against surgical cuts without leaving any biometric or secret traces in the database or over the wire.
 
 \section{Methodology}
 The organized workflow of the proposed secure biometric authentication framework consists of five stages: data acquisition, preprocessing, circular Gabor feature extraction, fuzzy commitment generation, and interactive Schnorr zero-knowledge proof verification. Fig.~\ref{fig:methodology} illustrates the detailed operational flow diagram for Enrollment (Sign Up) and Authentication (Login).
 
+\begin{figure}[!t]
+    \centering
+    \includegraphics[width=0.70\columnwidth]{diag.png}
+    \caption{Secure Fingerprint Authentication System flow diagram: Enrollment Phase (left) generating public helper data $W$, hash commitment $H$, and public key $Y$; Authentication Phase (right) executing fuzzy recovery, SHA-256 integrity verification, and 3-pass Schnorr Zero-Knowledge Proof (ZKP) verification.}
+    \label{fig:methodology}
+\end{figure}
+
 \subsection{Datasets}
 We evaluate the framework on the Sokoto Coventry Fingerprint Dataset (SOCOFing) \cite{socofing2018}, a comprehensive biometric benchmark comprising 600 unique human subjects (10 fingers per subject) and 23,931 total images. As depicted in Fig.~\ref{fig:modalities}, the dataset incorporates:
-\begin{itemize}
+\begin{itemize}[leftmargin=*, itemsep=2pt]
     \item \textbf{Real Unaltered Scans}: 6,000 baseline biometric captures ($500 \times 400$ 8-bit grayscale).
     \item \textbf{Central Rotation (\texttt{\_CR})}: 5,969 impressions distorted by angular rotations up to $\pm 45^\circ$.
     \item \textbf{Obliteration (\texttt{\_Obl})}: 5,984 impressions with synthetic tissue abrasion and center ridge erasure.
@@ -147,7 +149,8 @@ G(x, y; \theta_k, f, \sigma) = \exp\left( -\frac{x'^2 + \gamma^2 y'^2}{2\sigma^2
 \end{equation}
 where $x' = x\cos\theta_k + y\sin\theta_k$, $y' = -x\sin\theta_k + y\cos\theta_k$, $\theta_k = \frac{k\pi}{8}$ for $k \in \{0, \dots, 7\}$, radial frequency $f = 0.1$, and spatial bandwidth $\sigma = 4.0$. Binary thresholding of sector energy yields a 1024-bit binary FingerCode:
 \begin{equation}
-B = [v_1, v_2, \dots, v_{1024}] \in \{0, 1\}^{1024}
+B = [v_1, v_2, \dots, v_{1024}]^\top \in \{0, 1\}^{1024}
+\label{eq:fingercode}
 \end{equation}
 Fig.~\ref{fig:gabor} illustrates the core alignment and filterbank convolution workflow.
 
@@ -166,126 +169,133 @@ H_1 = [1], \quad H_{2k} = \begin{bmatrix} H_k & H_k \\ H_k & -H_k \end{bmatrix}
 \end{equation}
 The rows of $H_{128}$ and their bitwise complements define a codebook $\mathcal{C}_{128}$ containing $M = 256$ valid codewords of length $n = 128$ bits ($k = 8$ information bits per block). The minimum Hamming distance between distinct codewords is $d_{\min} = 64$ bits. The error-correction capability $t$ of each block is:
 \begin{equation}
-t = \left\lfloor \frac{d_{\min} - 1}{2} \right\rfloor = \left\lfloor \frac{63}{2} \right\rfloor = 31 \text{ bits}
+t = \left\lfloor \frac{d_{\min} - 1}{2} \right\rfloor = \left\lfloor \frac{63}{2} \right\rfloor = 31 \text{ bits per block}
 \label{eq:error_bound}
 \end{equation}
 Eight Hadamard-128 blocks are concatenated to protect the full 1024-bit FingerCode:
 \begin{equation}
 \text{Codeword}(C) = [c_1(s_1) \,\|\, c_2(s_2) \,\|\, \dots \,\|\, c_8(s_8)] \in \{0, 1\}^{1024}
+\label{eq:codeword}
 \end{equation}
 where $C \in \{0, 1\}^{64}$ is an 8-byte random secret key. Across the entire template, the system corrects up to $8 \times 31 = 248$ bit flips (a theoretical maximum noise tolerance of 24.22\%).
 
 \subsection{Juels-Wattenberg Fuzzy Commitment}
 During identity enrollment (Sign Up):
-\begin{enumerate}
+\begin{enumerate}[itemsep=2pt, topsep=2pt]
     \item A random 64-bit secret key $C \xleftarrow{\$} \{0, 1\}^{64}$ is generated.
     \item Secret key $C$ is encoded into concatenated codeword $\text{Codeword}(C) \in \{0, 1\}^{1024}$.
     \item Public helper data $W$ is computed:
     \begin{equation}
     W = B \oplus \text{Codeword}(C)
+    \label{eq:helper}
     \end{equation}
-    \item Hash commitment $H = \text{SHA-256}(C)$ and public key $Y = g^C \pmod p$ are generated.
+    \item Hash commitment $H = \text{SHA-256}(C)$ and public key $Y = g^C \pmod p$ are generated:
+    \begin{equation}
+    H = \text{SHA-256}(C), \quad Y = g^C \pmod p
+    \label{eq:commitment}
+    \end{equation}
     \item The public tuple $\{U, W, H, Y, x_c, y_c\}$ is stored in the database vault, and $B$ and $C$ are permanently destroyed from memory.
 \end{enumerate}
 
 During verification (Login) with query template $B^*$:
 \begin{equation}
 C^* = W \oplus B^* = \text{Codeword}(C) \oplus (B \oplus B^*)
+\label{eq:recovery}
 \end{equation}
-Nearest-codeword decoding maps $C^*$ back to exact codeword $\text{Codeword}(C)$ whenever $d_H(B, B^*) \le 31$ bits per block, recovering $C'$.
+Nearest-codeword decoding maps $C^*$ back to exact codeword $\text{Codeword}(C)$ whenever $d_H(B, B^*) \le 31$ bits per block, recovering candidate secret $C'$.
 If $\text{SHA-256}(C') \ne H$, authentication terminates with \textbf{ACCESS DENIED}. Otherwise, the system proceeds to the zero-knowledge proof.
 
 \subsection{Schnorr 3-Pass Zero-Knowledge Proof Authentication}
 To authenticate without revealing $C'$ over the network, prover and verifier execute a 3-pass Schnorr ZKP over an RFC 3526 2048-bit MODP Diffie-Hellman group ($\mathbb{Z}_p^*, g=2, q=(p-1)/2$) \cite{rfc3526}:
-\begin{itemize}
-    \item \textbf{Pass 1 (Commitment)}: Prover generates random nonce $r \xleftarrow{\$} [1, q-1]$, calculates commitment $t = g^r \pmod p$, and transmits $t$.
+\begin{itemize}[itemsep=2pt, topsep=2pt]
+    \item \textbf{Pass 1 (Commitment)}: Prover generates random nonce $r \xleftarrow{\$} [1, q-1]$, calculates commitment $t = g^r \pmod p$, and transmits $t$:
+    \begin{equation}
+    t = g^r \pmod p
+    \label{eq:zkp_comm}
+    \end{equation}
     \item \textbf{Pass 2 (Challenge)}: Verifier samples random 160-bit challenge $c \xleftarrow{\$} [1, 2^{160}-1]$ and sends $c$.
     \item \textbf{Pass 3 (Response)}: Prover computes modular response:
     \begin{equation}
     s = (r + c \cdot C') \pmod q
+    \label{eq:zkp_resp}
     \end{equation}
     and transmits $s$.
 \end{itemize}
 The verifier accepts if and only if:
 \begin{equation}
 g^s \equiv t \cdot Y^c \pmod p
+\label{eq:zkp_verify}
 \end{equation}
 Because $g^s = g^{r + c \cdot C} = g^r \cdot (g^C)^c \equiv t \cdot Y^c \pmod p$, the proof succeeds deterministically for genuine claimants ($\textbf{ACCESS GRANTED}$) while leaking zero knowledge to passive or active eavesdroppers.
 
-\section{Results and Discussion}
-The performance of the proposed framework was evaluated across all 600 subjects of the SOCOFing benchmark under an 80/20 train/test split. Table~\ref{tab:metrics} itemizes the complete empirical metrics recorded from the full Kaggle execution, including the granular breakdown across alteration modalities.
-
-\begin{table}[!t]
+\begin{table*}[!t]
 \centering
 \caption{Comprehensive Benchmark Metrics and Alteration Breakdown on Kaggle SOCOFing Execution}
 \label{tab:metrics}
-\setlength{\tabcolsep}{3.5pt}
-\renewcommand{\arraystretch}{1.08}
+\setlength{\tabcolsep}{8pt}
+\renewcommand{\arraystretch}{1.12}
 \begin{tabular}{lcc}
 \toprule
-\textbf{Performance Metric / Modality} & \textbf{Training Split (480 Subj.)} & \textbf{Testing Split (120 Unseen)} \\
+\textbf{Performance Metric / Evaluation Category} & \textbf{Training Partition (480 Subjects)} & \textbf{Testing Partition (120 Unseen Subjects)} \\
 \midrule
-Evaluated Subjects / Enrolled Fingers & 480 Subj. / 4,800 Fingers & 120 Subj. / 1,200 Fingers \\
+Evaluated Subjects / Enrolled Fingers & 480 Subjects / 4,800 Fingers & 120 Subjects / 1,200 Fingers \\
 Genuine Verification Trials & 14,350 Trials & 3,583 Trials \\
 \textbf{Genuine Accepted (TAR)} & \textbf{13,650 (95.12\%)} & \textbf{3,423 (95.53\%)} \\
 Schnorr ZKP Proofs Verified & 13,650 (100.00\%) & 3,423 (100.00\%) \\
-\textbf{False Rejection Rate (FRR)} & \textbf{4.88\% (4.878\%)} & \textbf{4.47\% (4.466\%)} \\
+\textbf{Cryptographic False Rejection Rate (FRR)} & \textbf{4.88\% (4.878\%)} & \textbf{4.47\% (4.466\%)} \\
 \midrule
 Cross-Subject Impostor Trials & 38,400 Trials & 9,600 Trials \\
-Impostor False Matches & 83 Breaches & 17 Breaches \\
-\textbf{False Acceptance Rate (FAR)} & \textbf{0.22\% (0.2161\%)} & \textbf{0.18\% (0.1771\%)} \\
+Impostor False Matches (Breaches) & 83 Breaches & 17 Breaches \\
+\textbf{Cryptographic False Acceptance Rate (FAR)} & \textbf{0.22\% (0.2161\%)} & \textbf{0.18\% (0.1771\%)} \\
 \midrule
-\textbf{Equal Error Rate (EER)} & \textbf{1.72\% (@ 0.362)} & \textbf{1.54\% (@ 0.362)} \\
+\textbf{Equal Error Rate (EER)} & \textbf{1.72\% (@ 0.362 threshold)} & \textbf{1.54\% (@ 0.362 threshold)} \\
 \textbf{Area Under ROC Curve (AUC)} & \textbf{0.9970} & \textbf{0.9964} \\
-Mean Genuine Hamming Dist. & $0.1543 \pm 0.0810$ & $0.1517 \pm 0.0823$ \\
-Mean Impostor Hamming Dist. & $0.4274 \pm 0.0276$ & $0.4292 \pm 0.0279$ \\
+Mean Genuine Hamming Distance & $0.1543 \pm 0.0810$ & $0.1517 \pm 0.0823$ \\
+Mean Impostor Hamming Distance & $0.4274 \pm 0.0276$ & $0.4292 \pm 0.0279$ \\
 \midrule
-\multicolumn{3}{c}{\textit{Granular Alteration Modality Breakdown (False Rejection Rate)}} \\
+\multicolumn{3}{c}{\textbf{Granular Alteration Modality Breakdown (False Rejection Rate)}} \\
 \midrule
-Z-Cut Incisions (\texttt{\_Zcut}) & \textbf{0.00\%} (100.00\% Acc.) & \textbf{0.00\%} (100.00\% Acc.) \\
-Central Rotation (\texttt{\_CR}) & 2.18\% (97.82\% Acc.) & 2.17\% (97.83\% Acc.) \\
-Obliteration (\texttt{\_Obl}) & 12.43\% (87.57\% Acc.) & 11.26\% (88.74\% Acc.) \\
+Z-Cut Surgical Incisions (\texttt{\_Zcut}) & \textbf{0.00\% FRR} (100.00\% Accuracy) & \textbf{0.00\% FRR} (100.00\% Accuracy) \\
+Central Rotation up to $\pm 45^\circ$ (\texttt{\_CR}) & 2.18\% FRR (97.82\% Accuracy) & 2.17\% FRR (97.83\% Accuracy) \\
+Central Obliteration (\texttt{\_Obl}) & 12.43\% FRR (87.57\% Accuracy) & 11.26\% FRR (88.74\% Accuracy) \\
 \bottomrule
 \end{tabular}
-\end{table}
+\end{table*}
 
 \begin{figure*}[!t]
     \centering
-    \includegraphics[width=0.92\textwidth]{results_test.png}
+    \includegraphics[width=0.88\textwidth]{results_test.png}
     \caption{Empirical verification benchmark on the held-out test partition (120 unseen subjects, 3,583 genuine and 9,600 impostor comparisons): (a) Receiver Operating Characteristic (ROC) curve achieving an operational EER of 1.54\% and an AUC of 0.9964; (b) Distinct empirical Hamming distance distributions showing complete separation ($d_H(\text{genuine}) = 0.1517$ vs. $d_H(\text{impostor}) = 0.4292$); (c) Recognition breakdown confirming robust generalization across unseen altered subjects.}
     \label{fig:test_results}
 \end{figure*}
+
+\section{Results and Discussion}
+The performance of the proposed framework was evaluated across all 600 subjects of the SOCOFing benchmark under an 80/20 train/test split. Table~\ref{tab:metrics} itemizes the complete empirical metrics recorded from the full Kaggle execution, including the granular breakdown across alteration modalities.
 
 \subsection{Testing Split Performance on 120 Unseen Subjects}
 To rigorously assess real-world generalizability without displaying repetitive training plots, Fig.~\ref{fig:test_results} illustrates the empirical performance on the held-out test split of 120 unseen subjects (3,583 genuine and 9,600 cross-subject impostor comparisons). The framework achieved an EER of 1.54\% (1.539\% @ threshold 0.362), TAR of 95.53\% (3,423/3,583), FRR of 4.47\%, and FAR of 0.18\% (only 17 false matches out of 9,600 trials), with an AUC of 0.9964. The genuine Hamming distance distribution ($0.1517 \pm 0.0823$) and impostor distribution ($0.4292 \pm 0.0279$) demonstrated near-complete statistical separation.
 
 \subsection{Performance Across Alteration Modalities}
 As reported in Table~\ref{tab:metrics}, the framework exhibits distinct resilience across alteration types:
-\begin{itemize}
+\begin{itemize}[leftmargin=*, itemsep=2pt]
     \item \textbf{Z-Cut Incisions (\texttt{\_Zcut})}: Achieved \textbf{0.00\% FRR} (100.00\% accuracy) on both training (4,783/4,783) and testing (1,197/1,197) splits. Because surgical cuts produce localized, thin discontinuities while preserving surrounding directional ridge flow, Gabor filtering effectively averages out high-frequency cut lines.
     \item \textbf{Central Rotation (\texttt{\_CR})}: Recorded an FRR of 2.18\% (train) and 2.17\% (test). Circular sector cyclicity successfully compensated for angular misalignments up to $\pm 45^\circ$.
     \item \textbf{Obliteration (\texttt{\_Obl})}: Yielded an FRR of 12.43\% (train) and 11.26\% (test). Core pattern destruction represents the primary source of genuine rejection, yet 88.74\% of cases were successfully recovered.
 \end{itemize}
 
-\subsection{How We Drastically Reduced EER, FRR, and FAR}
-Table~\ref{tab:comparison} and Fig.~\ref{fig:accuracy_comparison} benchmark our empirical results against prior template protection frameworks on the SOCOFing benchmark:
-\begin{enumerate}
-    \item \textbf{EER Reduction from 5.50\% to 1.54\%}: Conventional fuzzy vaults \cite{nandakumar2007vault} suffer from high chaff noise and alignment jitter, leading to EERs between 5.5\% and 8.2\%. Our circular Gabor representation ensures precise translation invariance, while Hadamard-128 bounded decoding eliminates false rejections, reducing EER to \textbf{1.54\%} (a 72\% relative reduction compared to fuzzy vaults and a 63\% reduction compared to BioHashing \cite{ratha2007cancelable}).
-    \item \textbf{FRR Reduction to 0.00\% on Z-Cuts}: In minutiae-based systems, surgical incisions sever ridge lines, generating dozens of spurious minutiae that trigger complete match failure (FRR $> 15\%$). Because our Hadamard-128 error-correcting codes tolerate up to 31 bit errors per 128-bit block (up to 248 bit flips across the full template), high-frequency cut lines are completely corrected, yielding \textbf{0.00\% FRR}.
-    \item \textbf{FAR Reduction to 0.18\%}: Impostor feature vectors exhibit near-ideal binomial distribution centering at $d_H = 0.4292$. The probability of an impostor randomly matching all 8 Hadamard blocks within the 31-bit error bound is upper-bounded by $P_{\text{false}} \le (2^{-8})^8 = 2^{-64}$. Coupled with 2048-bit discrete log security, the empirical FAR dropped to \textbf{0.18\%} (17 breaches out of 9,600 trials).
-\end{enumerate}
-
 \begin{table}[!t]
 \centering
 \caption{Comparison of Error Rates with Prior Biometric Protection Schemes}
 \label{tab:comparison}
-\setlength{\tabcolsep}{4pt}
+\setlength{\tabcolsep}{2.5pt}
+\renewcommand{\arraystretch}{1.1}
+\footnotesize
 \begin{tabular}{lccc}
 \toprule
-\textbf{Framework / Methodology} & \textbf{EER (\%)} & \textbf{FRR (\%)} & \textbf{FAR (\%)} \\
+\textbf{Methodology / Scheme} & \textbf{EER (\%)} & \textbf{FRR (\%)} & \textbf{FAR (\%)} \\
 \midrule
 Unprotected Minutiae Baseline \cite{jain2008biometric} & 4.85\% & 7.60\% & 1.80\% \\
-Cancelable BioHashing (Ratha et al.) \cite{ratha2007cancelable} & 4.20\% & 8.50\% & 1.20\% \\
+Cancelable BioHashing (Ratha) \cite{ratha2007cancelable} & 4.20\% & 8.50\% & 1.20\% \\
 Fingerprint Fuzzy Vault (Nandakumar) \cite{nandakumar2007vault} & 5.50\% & 10.40\% & 0.95\% \\
 Fuzzy Commitment (BCH/RS) (Tuyls) \cite{tuyls2005practical} & 3.20\% & 6.10\% & 0.85\% \\
 SOCOFing Baseline CNN (Kiviharju) \cite{socofing2018} & 3.80\% & 6.80\% & 1.10\% \\
@@ -298,14 +308,22 @@ SOCOFing Baseline CNN (Kiviharju) \cite{socofing2018} & 3.80\% & 6.80\% & 1.10\%
 
 \begin{figure}[!t]
     \centering
-    \includegraphics[width=0.88\columnwidth]{comparision.png}
+    \includegraphics[width=0.85\columnwidth]{comparision.png}
     \caption{Comparative error rate reduction across biometric security schemes on the SOCOFing benchmark. The proposed framework achieves the lowest EER (1.54\%), FRR (4.47\%), and FAR (0.18\%).}
     \label{fig:accuracy_comparison}
 \end{figure}
 
+\subsection{How We Drastically Reduced EER, FRR, and FAR}
+Table~\ref{tab:comparison} and Fig.~\ref{fig:accuracy_comparison} benchmark our empirical results against prior template protection frameworks on the SOCOFing benchmark:
+\begin{enumerate}[leftmargin=*, itemsep=3pt]
+    \item \textbf{EER Reduction from 5.50\% to 1.54\%}: Conventional fuzzy vaults \cite{nandakumar2007vault} suffer from high chaff noise and alignment jitter, leading to EERs between 5.5\% and 8.2\%. Our circular Gabor representation ensures precise translation invariance, while Hadamard-128 bounded decoding eliminates false rejections, reducing EER to \textbf{1.54\%} (a 72\% relative reduction compared to fuzzy vaults and a 63\% reduction compared to BioHashing \cite{ratha2007cancelable}).
+    \item \textbf{FRR Reduction to 0.00\% on Z-Cuts}: In minutiae-based systems, surgical incisions sever ridge lines, generating dozens of spurious minutiae that trigger complete match failure (FRR $> 15\%$). Because our Hadamard-128 error-correcting codes tolerate up to 31 bit errors per 128-bit block (up to 248 bit flips across the full template), high-frequency cut lines are completely corrected, yielding \textbf{0.00\% FRR}.
+    \item \textbf{FAR Reduction to 0.18\%}: Impostor feature vectors exhibit near-ideal binomial distribution centering at $d_H = 0.4292$. The probability of an impostor randomly matching all 8 Hadamard blocks within the 31-bit error bound is upper-bounded by $P_{\text{false}} \le (2^{-8})^8 = 2^{-64}$. Coupled with 2048-bit discrete log security, the empirical FAR dropped to \textbf{0.18\%} (17 breaches out of 9,600 trials).
+\end{enumerate}
+
 \subsection{Latency Profiling and Security Guarantees}
 End-to-end execution latency across 1,000 verification cycles averaged \textbf{196.4 ms}:
-\begin{itemize}
+\begin{itemize}[leftmargin=*, itemsep=2pt]
     \item Preprocessing and core localization: $34.2 \pm 3.1$ ms (17.4\%).
     \item Circular Gabor convolution (8 filters): $148.5 \pm 8.6$ ms (75.6\%).
     \item Hadamard-128 error-correction decoding: $8.9 \pm 0.7$ ms (4.5\%).

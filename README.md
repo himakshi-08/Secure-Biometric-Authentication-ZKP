@@ -116,45 +116,6 @@ The database stores **only 3 cryptographic values per user**:
 > **Zero Leakage Invariant:** No raw images, no minutiae $(x, y, \theta)$ coordinates, no binary templates $B$, and no secret keys $C$ are ever written to the database or persisted on disk. Database theft yields zero reconstructible biometric information.
 
 ---
-
-## 🏗️ System Architecture & Flow Diagram
-
-The implementation directly realizes every block of the system flow diagram:
-
-```
-========================================================================================
-   ENROLLMENT (SIGN UP)                                 AUTHENTICATION (LOGIN)
-========================================================================================
-1. Input: Fingerprint Image                           1. Input: Fingerprint Image (Query)
-          │                                                     │
-2. Preprocessing (Norm, Filter, Thin)                 2. Preprocessing (Same as Enrollment)
-          │                                                     │
-3. Feature Extraction (Minutiae & Core)               3. Feature Extraction (Minutiae & Core)
-          │                                                     │
-4. Template Generation (Binary B in {0,1}^1024)       4. Template Generation (Query B')
-          │                                                     │
-5. Fuzzy Commitment (With Secret Key C):              5. Fuzzy Recovery (Recover Secret Key):
-   - Generate random secret key (C)                      - Noisy codeword = B' XOR W
-   - ECC encode C -> Codeword(C)                         - ECC error-correct to get C'
-   - Helper data W = B XOR Codeword(C)                   - Check if SHA256(C') == H
-   - Commitment H = SHA256(C)                                   │
-   - Public key Y = g^C mod p                            [ Is SHA256(C') == H ? ]
-          │                                                /                 \
-6. Store in Database (ONLY W, H, Y)                       No                 Yes
-          │                                               │                   │
-      [DATABASE]                                    ACCESS DENIED   6. Schnorr ZKP (3-Pass)
-   (Stores only W,H,Y)                                              - Commitment: t = g^r mod p
-          │                                                         - Challenge:  c (random)
-          └─────────────────────────────────────────────────────────- Response:   s = r + c*x mod q
-                                                                    - Verify:     g^s == t * Y^c mod p
-                                                                              │
-                                                                    7. Verification Result:
-                                                                       ACCESS GRANTED / DENIED
-========================================================================================
-```
-
----
-
 ## 🔬 Mathematical Formulations
 
 ### 1. Preprocessing & Minutiae Extraction
